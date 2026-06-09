@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+
+# Xcode / build
+build/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+xcuserdata/
+*.moved-aside
+
+# SwiftPM
+.build/
+.swiftpm/
+
+# CEF binary distribution (large, downloaded separately — not committed)
+cef/
+*.tar.bz2
+
+# Node (web side, later)
+node_modules/
+
+# Secrets / local
+*.env
+.env.local
+
+# Local tooling / generated
+.claude/
+*.xcodeproj/

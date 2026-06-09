@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MEETAMASK Studio</title>
+<!-- Proven offscreen-webcam path: MediaPipe pumps the camera and returns the decoded frame
+     as results.image (a raw <video> stays at readyState=0 in the offscreen renderer). We use
+     the hand model only as a frame pump and ignore the landmarks. -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  .input_video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+  #c { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; display: block; }
+  #startBtn {
+    position: absolute; left: 50%; top: 58%; transform: translateX(-50%); z-index: 3;
+    padding: 16px 46px; border: none; border-radius: 40px; cursor: pointer;
+    font-size: 20px; font-weight: 700; letter-spacing: 2px; color: #fff;
+    background: linear-gradient(90deg, #27e0c0, #3a7bff); box-shadow: 0 0 30px rgba(40,200,255,.7);
+  }
+  #title { position: absolute; left: 0; right: 0; top: 42%; text-align: center; color: #fff;
+           font-size: 28px; letter-spacing: 8px; font-weight: 300; z-index: 3; }
+</style>
+</head>
+<body>
+  <video class="input_video" autoplay playsinline muted></video>
+  <canvas id="c" width="1280" height="720"></canvas>
+  <div id="title">MEETAMASK</div>
+  <button id="startBtn">ENTER</button>
+
+<script>
+(function () {
+  var v = document.querySelector('.input_video');
+  var c = document.getElementById('c');
+  var x = c.getContext('2d');
+  var W = 1280, H = 720, t = 0, running = false;
+
+  function hideIntro() {
+    ['startBtn', 'title'].forEach(function (id) { var e = document.getElementById(id); if (e) e.style.display = 'none'; });
+  }
+
+  // Draw every camera frame from MediaPipe (results.image) + a clean, always-on look.
+  function onResults(r) {
+    t++;
+    if (r && r.image) { x.drawImage(r.image, 0, 0, W, H); }   // un-mirrored: consumer mirrors self-view
+    else { x.fillStyle = '#05070d'; x.fillRect(0, 0, W, H); }
+
+    // Cinematic teal→amber grade (soft-light keeps skin natural but clearly graded).
+    x.globalCompositeOperation = 'soft-light';
+    var g = x.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, 'rgba(0,170,200,0.45)');
+    g.addColorStop(1, 'rgba(255,130,50,0.40)');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    x.globalCompositeOperation = 'source-over';
+
+    // Vignette to focus on the face.
+    var vg = x.createRadialGradient(W/2, H/2, H*0.33, W/2, H/2, H*0.92);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.5)');
+    x.fillStyle = vg; x.fillRect(0, 0, W, H);
+
+    // Subtle slow-pulsing glow border — clearly "a filter", but elegant.
+    var a = 0.30 + 0.22 * Math.sin(t * 0.05);
+    x.strokeStyle = 'rgba(60,210,255,' + a + ')';
+    x.lineWidth = 6;
+    x.shadowColor = 'rgba(60,210,255,' + a + ')';
+    x.shadowBlur = 26;
+    x.strokeRect(11, 11, W - 22, H - 22);
+    x.shadowBlur = 0;
+  }
+
+  function begin() {
+    if (running) return;
+    running = true;
+    hideIntro();
+    try {
+      var hands = new Hands({ locateFile: function (f) { return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/' + f; } });
+      hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+      hands.onResults(onResults);
+      var cam = new Camera(v, {
+        onFrame: async function () { await hands.send({ image: v }); },
+        width: 1280, height: 720, facingMode: 'user'
+      });
+      cam.start();
+      console.log('MEETAMASK studio: pump started');
+    } catch (e) {
+      console.log('MEETAMASK studio error: ' + e.message);
+    }
+  }
+
+  document.getElementById('startBtn').addEventListener('click', begin);
+  setTimeout(begin, 1500);   // self-start if the host auto-click is missed
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,416 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+}
+
+body, body * { -webkit-touch-callout: none; }
+
+#cam, #c {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+#cam { object-fit: cover; }
+#cam.cam-mirrored { transform: scaleX(-1); }
+#cam.cam-hidden { display: none; }
+#c { pointer-events: none; }
+
+/* Start button */
+#start {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 14px 26px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border: none;
+  border-radius: 999px;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  z-index: 50;
+  cursor: pointer;
+  font-family: inherit;
+}
+#start.hidden { display: none; }
+
+/* Launcher: vertical scroll with sectioned grids */
+.contentLauncher {
+  --content-tile-size: min(172px, max(120px, min(calc((100vw - 44px) / 2), calc((100svh - 220px - 150px) / 2))));
+  --content-cols: 1;
+  position: fixed;
+  inset: 0;
+  display: block;
+  padding: 28px 16px 130px;
+  margin: 0;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  z-index: 20;
+  background: #fff;
+}
+.contentLauncher.hidden { display: none; }
+.launcherSection { margin: 0 auto 22px; }
+.launcherSectionGrid {
+  display: grid;
+  grid-template-columns: repeat(var(--content-cols), minmax(0, var(--content-tile-size)));
+  grid-auto-rows: var(--content-tile-size);
+  justify-content: center;
+  gap: 12px;
+}
+
+@media (min-width: 360px)  { .contentLauncher { --content-cols: 2; } }
+@media (min-width: 560px)  { .contentLauncher { --content-cols: 3; } }
+@media (min-width: 760px)  { .contentLauncher { --content-cols: 4; } }
+@media (min-width: 960px)  { .contentLauncher { --content-cols: 5; } }
+@media (min-width: 1160px) { .contentLauncher { --content-cols: 6; } }
+@media (min-width: 1360px) { .contentLauncher { --content-cols: 7; } }
+@media (min-width: 1560px) { .contentLauncher { --content-cols: 8; } }
+
+/* Launcher header — title block */
+.launcherHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 auto 18px;
+  padding: 0;
+  max-width: 100%;
+}
+.launcherTitle {
+  font-size: clamp(36px, 7vw, 64px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+  color: #000;
+  margin: 0;
+  text-transform: lowercase;
+}
+.launcherSubtitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #000;
+  margin: 0;
+}
+.launcherSectionHeader {
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.launcherSectionTitle {
+  color: #000;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.launcherSectionDivider {
+  flex: 1 1 auto;
+  height: 1px;
+  background: #000;
+}
+
+/* Tile */
+.contentStartBtn {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  border: 1.5px solid rgba(0,0,0,0.95);
+  border-radius: 0;
+  background: #000;
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+}
+.contentStartBtn canvas,
+.contentStartBtn .tilePreview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+  background: #111;
+}
+.contentStartBtnTextOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 10px 12px;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, rgba(0,0,0,0.04) 30%, rgba(0,0,0,0.66));
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.65);
+}
+.contentStartBtnTextTitle {
+  font-size: 22px;
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+.contentStartBtnTextSubtitle {
+  font-size: 11px;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+.contentStartBtn:active { transform: translateY(1px); }
+
+/* Back / camera / capture */
+.contentBackBtn {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  left: calc(env(safe-area-inset-left, 0px) + 14px);
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  border: none;
+  background: transparent;
+  color: #fff;
+  z-index: 90;
+  cursor: pointer;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  font-family: inherit;
+}
+.contentBackBtn.hidden { display: none !important; }
+body[data-active-content-id="FaceDots"] .contentBackBtn,
+body[data-active-content-id="PixelWarp"] .contentBackBtn { color: #fff; }
+
+#switchCamera {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1.5px solid rgba(255,255,255,0.95);
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  z-index: 11;
+  cursor: pointer;
+  font-family: inherit;
+}
+#switchCamera.hidden { display: none; }
+#switchCamera:disabled { opacity: 0.5; cursor: default; }
+
+.contentCaptureBtn {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  transform: translateX(-50%);
+  width: 74px;
+  height: 74px;
+  border-radius: 999px;
+  border: 4px solid rgba(255,255,255,0.98);
+  background: transparent;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.47);
+  z-index: 88;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.contentCaptureBtn.hidden { display: none; }
+.contentCaptureBtnInner {
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  background: #ff3e3e;
+  opacity: 0;
+  transform: scale(0.72);
+  transition: opacity 0.14s ease, transform 0.14s ease, border-radius 0.14s ease;
+}
+.contentCaptureBtn--recording { border-color: #ff3e3e; }
+.contentCaptureBtn--recording .contentCaptureBtnInner {
+  opacity: 1;
+  transform: scale(1);
+  border-radius: 4px;
+}
+
+.contentCaptureNotice {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 108px);
+  transform: translateX(-50%);
+  max-width: min(86vw, 420px);
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(17,17,17,0.84);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  z-index: 89;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.contentCaptureNotice.hidden { display: none !important; }
+
+/* HUD */
+.hud {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 100px;
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.55);
+  color: #e5e7eb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  border-radius: 8px;
+  z-index: 12;
+  pointer-events: none;
+  white-space: pre;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.hud.hidden { display: none; }
+
+/* Contact dock */
+.contactDock {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  width: min(92vw, 760px);
+  height: 44px;
+  z-index: 22;
+  pointer-events: none;
+}
+.contactDock.hidden { display: none; }
+
+.contactPrimaryRow {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: min(94vw, 420px);
+  transform: translateX(-50%);
+  transition: transform 0.28s ease, opacity 0.24s ease;
+  pointer-events: none;
+}
+.contactDock.open .contactPrimaryRow {
+  transform: translate(-50%, calc(100% + 16px));
+  opacity: 0;
+}
+
+.contactActions {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transform: translate(-50%, 16px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.28s ease, opacity 0.22s ease;
+}
+.contactDock.open .contactActions {
+  transform: translateX(-50%);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.contactMainBtn {
+  pointer-events: auto;
+  min-width: clamp(130px, 38vw, 180px);
+  height: 44px;
+  padding: 0 16px;
+  border: 1.5px solid rgba(0,0,0,0.95);
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #111;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+}
+.contactActionBtn {
+  pointer-events: none;
+  height: 42px;
+  padding: 0 14px;
+  border: 1.5px solid rgba(0,0,0,0.95);
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #111;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.contactDock.open .contactActions .contactActionBtn { pointer-events: auto; }
+
+.contactEmailBtn {
+  width: min(76vw, 320px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.contactEmailLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contactEmailCheck {
+  opacity: 0;
+  transform: translate3d(8px, 0, 0) scale(0.7);
+  transform-origin: right center;
+}
+.contactEmailBtn.revealed .contactEmailCheck { opacity: 1; }
+.contactEmailBtn.checkPop .contactEmailCheck {
+  animation: contactEmailCheckPop 0.46s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes contactEmailCheckPop {
+  0%   { opacity: 0; transform: translate3d(12px, 0, 0) scale(0.2); }
+  66%  { opacity: 1; transform: translate3d(0, 0, 0) scale(1.15); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* When in content, hide launcher visually but keep DOM */
+body[data-app-view="content"] .contentLauncher,
+body[data-app-view="content"] .contactDock { display: none; }
+body[data-app-view="launcher"] #cam,
+body[data-app-view="launcher"] #c { display: none; }
+
+body[data-app-view="content"] #cam,
+body[data-app-view="content"] #c { display: block; }

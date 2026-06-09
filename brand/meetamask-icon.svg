@@ -1,0 +1,57 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="face" cx="50%" cy="38%" r="62%">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.68" stop-color="#F3F3F6"/>
+      <stop offset="1" stop-color="#D6D6DD"/>
+    </radialGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#161618"/>
+      <stop offset="1" stop-color="#050506"/>
+    </linearGradient>
+    <filter id="b6"  x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="6"/></filter>
+    <filter id="b14" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="14"/></filter>
+    <filter id="drop" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="10" stdDeviation="26" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" rx="232" fill="url(#bg)"/>
+
+  <g filter="url(#drop)">
+    <!-- face / mask silhouette -->
+    <path d="M 512,162
+             C 650,164 732,252 742,402
+             C 750,524 728,656 650,768
+             C 596,846 556,876 512,876
+             C 468,876 428,846 374,768
+             C 296,656 274,524 282,402
+             C 292,252 374,164 512,162 Z"
+          fill="url(#face)"/>
+  </g>
+
+  <!-- subtle cheekbone / jaw shading for form -->
+  <path d="M 300,470 C 320,600 360,720 430,800 C 360,720 322,600 312,470 Z" fill="#C7C7CF" opacity="0.45" filter="url(#b14)"/>
+  <path d="M 724,470 C 704,600 664,720 594,800 C 664,720 702,600 712,470 Z" fill="#C7C7CF" opacity="0.45" filter="url(#b14)"/>
+  <!-- forehead highlight -->
+  <ellipse cx="512" cy="300" rx="120" ry="80" fill="#FFFFFF" opacity="0.5" filter="url(#b14)"/>
+
+  <!-- eyes (almond) -->
+  <g fill="#08080A">
+    <path d="M 366,452 C 392,424 462,424 488,452 C 462,482 392,482 366,452 Z"/>
+    <path d="M 536,452 C 562,424 632,424 658,452 C 632,482 562,482 536,452 Z"/>
+  </g>
+  <!-- soft recess shadow under brow -->
+  <path d="M 366,448 C 392,430 462,430 488,448" fill="none" stroke="#B9B9C2" stroke-width="10" opacity="0.5" filter="url(#b6)"/>
+  <path d="M 536,448 C 562,430 632,430 658,448" fill="none" stroke="#B9B9C2" stroke-width="10" opacity="0.5" filter="url(#b6)"/>
+
+  <!-- nose: soft side shadow + nostrils -->
+  <path d="M 512,486 C 498,560 486,604 470,624 C 490,634 534,634 554,624 C 538,604 526,560 512,486 Z"
+        fill="#CACAD2" opacity="0.45" filter="url(#b14)"/>
+  <ellipse cx="489" cy="616" rx="9" ry="13" fill="#8E8E96" filter="url(#b6)"/>
+  <ellipse cx="535" cy="616" rx="9" ry="13" fill="#8E8E96" filter="url(#b6)"/>
+
+  <!-- mouth: closed lips, subtle -->
+  <ellipse cx="512" cy="724" rx="74" ry="20" fill="#C9C9D1" opacity="0.4" filter="url(#b14)"/>
+  <path d="M 452,720 C 488,727 536,727 572,720" fill="none" stroke="#7E7E87" stroke-width="9" stroke-linecap="round" opacity="0.7" filter="url(#b6)"/>
+</svg>

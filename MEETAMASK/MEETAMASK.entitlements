@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.system-extension.install</key>
+	<true/>
+	<!-- App Sandbox removed: a sandboxed app cannot launch the CEF engine subprocess
+	     (Process/NSTask is blocked) nor share a frame file with it. Non-sandboxed CEF
+	     host is the production pattern (OBS, Discord). Distribution is Developer ID +
+	     notarization, which does not require the sandbox. app-group is KEPT so
+	     CameraFeeder can still reach the extension's sink Mach service. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>6D6948Z4MW.com.meetamask.app</string>
+	</array>
+	<key>com.apple.security.device.camera</key>
+	<true/>
+</dict>
+</plist>

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MEETAMASK — VHS</title>
+<!-- Camera frame pump: a raw <video> stays readyState=0 in the offscreen renderer,
+     so MediaPipe Hands decodes the webcam and hands back results.image (landmarks
+     ignored — used only as a frame pump, same as Masks/meetamask-studio). -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden;
+               font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  .input_video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+  #c { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; display: block; }
+  #startBtn {
+    position: absolute; left: 50%; top: 58%; transform: translateX(-50%); z-index: 3;
+    padding: 16px 46px; border: none; border-radius: 40px; cursor: pointer;
+    font-size: 20px; font-weight: 700; letter-spacing: 2px; color: #fff;
+    background: linear-gradient(90deg, #27e0c0, #3a7bff); box-shadow: 0 0 30px rgba(40,200,255,.7);
+  }
+  #title { position: absolute; left: 0; right: 0; top: 42%; text-align: center; color: #fff;
+           font-size: 26px; letter-spacing: 8px; font-weight: 300; z-index: 3; }
+</style>
+</head>
+<body>
+  <video class="input_video" autoplay playsinline muted></video>
+  <canvas id="c" width="1280" height="720"></canvas>
+  <div id="title">VHS</div>
+  <button id="startBtn">ENTER</button>
+
+<script type="module">
+import * as THREE from 'https://esm.sh/three@0.161.0';
+
+const VERT = "\n  varying vec2 vUv;\n  void main() {\n    vUv = uv;\n    gl_Position = vec4(position.xy, 0.0, 1.0);\n  }\n";
+const FRAG = "\nprecision highp float;\nvarying vec2 vUv;\n\nuniform sampler2D uVideo;\nuniform vec2  uResolution;\nuniform vec2  uVideoSize;\nuniform vec2  uPointer;\nuniform float uPointerActive;\nuniform float uTime;\nuniform float uMirror;\nuniform float uIntensity;\n\nconst float PI  = 3.14159265358979;\nconst float TAU = 6.28318530717958;\n\nfloat luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }\n\nvec2 coverUv(vec2 uv) {\n  float ca = uResolution.x / uResolution.y;\n  float va = uVideoSize.x  / uVideoSize.y;\n  vec2 s = vec2(1.0);\n  if (ca > va) s.y = va / ca; else s.x = ca / va;\n  return (uv - 0.5) * s + 0.5;\n}\n\nvec3 sampleVideo(vec2 uv) {\n  // Real getUserMedia VideoTexture honours flipY=true: image's top row ends\n  // up at GL y=1. PURE shaders' full-screen quad has vUv.y=1 at TOP of\n  // screen, so sample with vUv directly. Mirror X for selfie view.\n  // (Note: canvas.captureStream-backed VideoTextures do NOT flipY — so our\n  // ?fake=1 dev mode looks upside-down; the real camera is right-side up.)\n  vec2 c = coverUv(uv);\n  if (uMirror > 0.5) c.x = 1.0 - c.x;\n  return texture2D(uVideo, clamp(c, 0.001, 0.999)).rgb;\n}\n\nfloat hash(vec2 p) {\n  p = fract(p * vec2(123.34, 456.21));\n  p += dot(p, p + 45.32);\n  return fract(p.x * p.y);\n}\n\nfloat vnoise(vec2 p) {\n  vec2 i = floor(p);\n  vec2 f = fract(p);\n  float a = hash(i);\n  float b = hash(i + vec2(1.0, 0.0));\n  float c = hash(i + vec2(0.0, 1.0));\n  float d = hash(i + vec2(1.0, 1.0));\n  vec2 u = f * f * (3.0 - 2.0 * f);\n  return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;\n}\n\nfloat fbm(vec2 p) {\n  float v = 0.0;\n  float a = 0.5;\n  for (int i = 0; i < 5; i++) {\n    v += a * vnoise(p);\n    p *= 2.02;\n    a *= 0.5;\n  }\n  return v;\n}\n\nvec3 hue2rgb(float h) {\n  vec3 k = vec3(0.0, 4.0, 2.0) / 6.0;\n  vec3 p = abs(fract(h + k) * 6.0 - 3.0);\n  return clamp(p - 1.0, 0.0, 1.0);\n}\n\n// Inigo Quilez's cosine palette: smooth ramp through colors\nvec3 palette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {\n  return a + b * cos(TAU * (c * t + d));\n}\n\nvec2 rotate2(vec2 p, float a) {\n  float s = sin(a), c = cos(a);\n  return mat2(c, -s, s, c) * p;\n}\n\nvoid main() {\n\n    vec2 uv = vUv;\n    float jitter = (hash(vec2(floor(uv.y * uResolution.y * 0.4), floor(uTime * 30.0))) - 0.5) * 0.02;\n    uv.x += jitter;\n    float glitch = step(0.97, hash(vec2(floor(uTime * 4.0), floor(uv.y * 20.0)))) * 0.08;\n    uv.x += glitch;\n    // A horizontal tear that follows the cursor's vertical position.\n    float dY = abs(uv.y - uPointer.y);\n    float tear = (1.0 - smoothstep(0.0, 0.035, dY)) * (0.18 + 0.35 * uPointerActive);\n    uv.x += tear * (hash(vec2(floor(uTime * 60.0), floor(uv.y * 80.0))) - 0.5);\n    vec3 col;\n    col.r = sampleVideo(uv + vec2( 0.008, 0.0)).r;\n    col.g = sampleVideo(uv).g;\n    col.b = sampleVideo(uv + vec2(-0.008, 0.0)).b;\n    col *= 0.82 + 0.18 * sin(uv.y * uResolution.y * PI);\n    col = col * vec3(1.08, 0.95, 0.95) + vec3(0.04, 0.0, 0.06);\n    // Bright streak right at the tear line\n    col += vec3(0.6, 0.05, 0.3) * (1.0 - smoothstep(0.0, 0.005, dY)) * uPointerActive;\n    gl_FragColor = vec4(col, 1.0);\n  \n}";
+const W = 1280, H = 720;
+
+const canvas = document.getElementById('c');
+const video = document.querySelector('.input_video');
+
+// THREE setup — identical to the prototype's BaseShaderEffect: full-screen quad,
+// ShaderMaterial(VERT, buildFragment(body)), same uniform names.
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: false });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H, false);
+renderer.setClearColor(0x000000, 1);
+
+const scene = new THREE.Scene();
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+// Camera source: MediaPipe results.image → 2D canvas → CanvasTexture (THREE flips Y
+// on upload like the real-webcam video texture, so sampleVideo orientation matches).
+// uMirror=0 ⇒ un-mirrored camera output (the app mirrors only the self-view).
+const camCanvas = document.createElement('canvas');
+camCanvas.width = W; camCanvas.height = H;
+const cctx = camCanvas.getContext('2d');
+cctx.fillStyle = '#000'; cctx.fillRect(0, 0, W, H);
+const videoTex = new THREE.CanvasTexture(camCanvas);
+videoTex.colorSpace = THREE.SRGBColorSpace;
+videoTex.minFilter = THREE.LinearFilter;
+videoTex.magFilter = THREE.LinearFilter;
+videoTex.generateMipmaps = false;
+
+const uniforms = {
+  uVideo:         { value: videoTex },
+  uResolution:    { value: new THREE.Vector2(W, H) },
+  uVideoSize:     { value: new THREE.Vector2(W, H) },
+  uPointer:       { value: new THREE.Vector2(0.5, 0.5) },
+  uPointerActive: { value: 0 },
+  uTime:          { value: 0 },
+  uMirror:        { value: 0.0 },
+  uIntensity:     { value: 1.0 },
+};
+
+const material = new THREE.ShaderMaterial({
+  vertexShader: VERT, fragmentShader: FRAG, uniforms, depthTest: false, depthWrite: false,
+});
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
+
+let haveFrame = false;
+let started = false;
+let last = performance.now();
+
+function renderLoop(t) {
+  const dt = Math.min(0.1, (t - last) / 1000);
+  last = t;
+  uniforms.uTime.value += dt;
+  if (haveFrame) videoTex.needsUpdate = true;
+  renderer.render(scene, camera);
+  requestAnimationFrame(renderLoop);
+}
+
+function onResults(r) {
+  if (r && r.image && r.image.width) {
+    cctx.drawImage(r.image, 0, 0, W, H);
+    uniforms.uVideoSize.value.set(r.image.width, r.image.height);
+    haveFrame = true;
+  }
+}
+
+function begin() {
+  if (started) return;
+  started = true;
+  ['startBtn', 'title'].forEach((id) => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+  console.log('MEETAMASK mask: starting');
+  try {
+    const hands = new Hands({ locateFile: (f) => 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/' + f });
+    hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+    hands.onResults(onResults);
+    const cam = new Camera(video, {
+      onFrame: async () => { await hands.send({ image: video }); },
+      width: W, height: H, facingMode: 'user',
+    });
+    cam.start();
+    console.log('MEETAMASK mask: camera pump started');
+  } catch (e) {
+    console.log('MEETAMASK mask: pump error ' + e.message);
+  }
+  requestAnimationFrame(renderLoop);   // render even before the first camera frame
+}
+
+document.getElementById('startBtn').addEventListener('click', begin);
+setTimeout(begin, 1200);   // self-start if the host auto-click is missed
+</script>
+</body>
+</html>

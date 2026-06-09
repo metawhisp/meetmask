@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <title>unknown reality archive — clone</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <video id="cam" autoplay playsinline muted></video>
+    <canvas id="c"></canvas>
+
+    <button id="start">Start</button>
+
+    <button id="back" class="contentBackBtn hidden">← Back</button>
+    <button id="switchCamera" class="hidden">Camera: Front</button>
+    <button id="capture" class="contentCaptureBtn hidden" aria-label="Record">
+      <span class="contentCaptureBtnInner"></span>
+    </button>
+    <div id="captureNotice" class="contentCaptureNotice hidden"></div>
+    <div id="hud" class="hud hidden"></div>
+
+    <main id="launcher" class="contentLauncher hidden"></main>
+
+    <div id="contactDock" class="contactDock hidden">
+      <div class="contactPrimaryRow">
+        <button class="contactMainBtn" id="contactBtn">CONTACT US</button>
+      </div>
+      <div class="contactActions">
+        <button class="contactActionBtn contactEmailBtn" id="emailBtn">
+          <span class="contactEmailLabel">hello@unknown.local</span>
+          <span class="contactEmailCheck">✓</span>
+        </button>
+        <button class="contactActionBtn" id="closeContactBtn">CLOSE</button>
+      </div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://esm.sh/three@0.161.0",
+          "three/": "https://esm.sh/three@0.161.0/"
+        }
+      }
+    </script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

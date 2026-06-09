@@ -1,0 +1,76 @@
+name: MEETAMASK
+
+options:
+  bundleIdPrefix: com.meetamask
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: 6D6948Z4MW
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_HARDENED_RUNTIME: YES
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.2"
+    CURRENT_PROJECT_VERSION: "2"
+
+targets:
+
+  MEETAMASK:
+    type: application
+    platform: macOS
+    sources:
+      - path: MEETAMASK
+      - path: Shared
+      - path: Masks
+        type: folder
+        buildPhase: resources
+      - path: Prototype
+        type: folder
+        buildPhase: resources
+      # NOTE: the CEF engine is intentionally NOT bundled — it's ~250 MB. The shipped app
+      # stays tiny and downloads the engine into Application Support on first launch
+      # (see EngineInstaller). To embed it for a dev build instead, re-add it here.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.meetamask.app
+        PRODUCT_NAME: MEETAMASK
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: MEETAMASK/MEETAMASK.entitlements
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_NSCameraUsageDescription: "MEETAMASK needs camera access to relay your webcam through the MEETAMASK virtual camera."
+        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.video"
+        ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: YES
+        LD_RUNPATH_SEARCH_PATHS:
+          - "$(inherited)"
+          - "@executable_path/../Frameworks"
+    dependencies:
+      - target: CameraExtension
+        embed: true
+        codeSign: false
+        copy:
+          destination: productsDirectory
+          subpath: "$(SYSTEM_EXTENSIONS_FOLDER_PATH)"
+
+  CameraExtension:
+    type: system-extension
+    platform: macOS
+    sources:
+      - path: CameraExtension
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.meetamask.app.CameraExtension
+        PRODUCT_NAME: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CODE_SIGN_ENTITLEMENTS: CameraExtension/CameraExtension.entitlements
+        INFOPLIST_FILE: CameraExtension/Info.plist
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "MEETAMASK Camera Extension"
+        SKIP_INSTALL: YES
+        LD_RUNPATH_SEARCH_PATHS:
+          - "$(inherited)"
+          - "@executable_path/../Frameworks"
+          - "@executable_path/../../../../Frameworks"
