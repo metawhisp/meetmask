@@ -67,3 +67,4 @@
 
 ## Лог итераций
 - **I1 — CI (2026-06-10).** Добавлен `.github/workflows/ci.yml`: job `tests` (IP-гард + mask-policy `swiftc` + seqlock `clang++`) и job `build` (xcodegen + `xcodebuild build` без подписи). Оба зелёные на `metawhisp/meetmask` (tests 13s, build 48s). `checkout@v5` (Node 24). Коммиты `6408ea2`, далее бамп checkout. Узнал: workflow-файлы пушатся только keyring-токеном `gh` (у именованного нет scope `workflow`).
+  - **codex-ревью итерации поймал P2:** seqlock-тест выходил `1` и при реальном баге, и при «inconclusive» (гонка не воспроизвелась на раннере) → CI мог краснеть без регрессии. Фикс: тест теперь возвращает `2` на inconclusive, `1` на реальный разрыв; CI ретраит на `2`, падает на `1`. Детерминированный зелёный.

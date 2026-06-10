@@ -122,7 +122,10 @@ int main() {
   long seq = runPhase("/tmp/mm-seqlock-seq.bin", true);
   printf("naive torn=%ld   seqlock torn=%ld\n", naive, seq);
 
-  if (naive == 0) { fprintf(stderr, "INCONCLUSIVE: workload did not race (naive reader saw no tears)\n"); return 1; }
+  // Exit 2 = INCONCLUSIVE (the workload didn't race this run — e.g. a slow/oddly-scheduled
+  // CI runner). NOT a regression: callers (CI) should retry rather than fail the build.
+  if (naive == 0) { fprintf(stderr, "INCONCLUSIVE: workload did not race (naive reader saw no tears)\n"); return 2; }
+  // Exit 1 = REAL FAILURE: the seqlock reader accepted a torn frame. Deterministic regression.
   if (seq != 0) { fprintf(stderr, "FAIL: seqlock reader accepted %ld torn frames\n", seq); return 1; }
   printf("PASS: naive tears (%ld), seqlock is tear-free\n", naive);
   return 0;
