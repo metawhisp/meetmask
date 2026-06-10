@@ -4,7 +4,7 @@
 # Usage: dist/notarize.sh <App.app> [keychain-profile]
 set -euo pipefail
 APP="${1:?usage: dist/notarize.sh <App.app> [keychain-profile]}"
-PROFILE="${2:-meetamask-notary}"
+PROFILE="${2:-meetamask}"
 ZIP="${APP%.app}.notarize.zip"
 
 echo "▸ Zipping for submission…"

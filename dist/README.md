@@ -23,7 +23,7 @@ Notarization needs your Apple ID. Create an **app-specific password** at
 notarytool keychain profile (your password never leaves your keychain):
 
 ```bash
-xcrun notarytool store-credentials "meetamask-notary" \
+xcrun notarytool store-credentials "meetamask" \
   --apple-id "YOUR_APPLE_ID@example.com" \
   --team-id  "6D6948Z4MW" \
   --password "xxxx-xxxx-xxxx-xxxx"     # the app-specific password
