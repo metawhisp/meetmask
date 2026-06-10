@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Unit tests
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: IP guard — no Homelander in the bundle
+        run: bash tests/no_homelander_test.sh
+
+      - name: Mask policy — arbitrary user HTML is never loaded
+        run: |
+          swiftc MEETAMASK/MaskLibrary.swift tests/main.swift -o "$RUNNER_TEMP/masktest"
+          "$RUNNER_TEMP/masktest"
+
+      - name: Seqlock — shared-memory frame hand-off is tear-free
+        run: |
+          clang++ -std=c++17 -O2 engine/frame_shm.mm engine/test/seqlock_test.mm -o "$RUNNER_TEMP/seqtest"
+          "$RUNNER_TEMP/seqtest"
+
+  build:
+    name: Build host app (unsigned)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      # Compile-only sanity: no signing, no provisioning. Proves the Swift app +
+      # camera extension still build; signing/notarization live in dist/ (not CI yet).
+      - name: Build (no code signing)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project MEETAMASK.xcodeproj \
+            -scheme MEETAMASK \
+            -configuration Debug \
+            -destination 'generic/platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            ENABLE_HARDENED_RUNTIME=NO
