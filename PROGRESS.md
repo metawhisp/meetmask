@@ -75,6 +75,28 @@ System Settings → **General → Login Items & Extensions** → секция **
 - Meet зеркалит self-view → порядок полос на экране обратный (это норм).
 - Meet накладывает свой portrait/background-blur поверх кадра → лёгкое размытие тест-паттерна. На фиделити реального видео смотрим в Итерации 3.
 
+## Backlog — НЕ блокеры MVP (чинить после первого релиза)
+> Все три срабатывают ТОЛЬКО когда «MEETAMASK Camera» одновременно открывают 2+ приложения (Meet + Photo Booth/Zoom). Обычный сценарий «один звонок» их не задевает. Подтверждено двумя независимыми ревью (codex native + 21-агентный проход, 2026-06-10). Все в одном файле `CameraExtension/CameraProvider.swift` — один заход когда дойдём.
+- **Заморозка при 2+ потребителях (F9):** `sinkShouldBeFed` (CameraProvider.swift:114) → `_streamingSourceCounter <= 1`; при 2+ зрителях приложение перестаёт кормить sink, все мрут. Фикс: `> 0`.
+- **Утечка/дубль таймера (codex P2):** `startStreamingSource`/`startStreamingSink` перезаписывают `_sourceTimer`/`_sinkTimer` без отмены старого; `stop` гасит только последний. Фикс: создавать таймер только на переходе 0→1, старый cancel.
+- **Несинхронные счётчики (F8):** `_streamingSourceCounter`/`_streamingSinkCounter` читаются/пишутся из разных очередей без lock.
+
+## Раздача ПОЛНОСТЬЮ — СДЕЛАНО (2026-06-10, вечер)
+- **Домен:** Cloudflare Worker `meetamask-dl` на `dl.meetamask.com` (зона meetamask.com; токены в Keychain: `cloudflare_meetamask_workers`, `cloudflare_meetamask_dns`; DNS AAAA `dl`→100:: proxied + route `dl.meetamask.com/*`). Редиректит на GitHub Release latest:
+  - `https://dl.meetamask.com/app` → MEETAMASK.zip (хост, 844K)
+  - `https://dl.meetamask.com/engine` → MEETAMASKEngine.zip (132 МБ)
+- **Хост-приложение:** пересобран с новым URL движка (`dl.meetamask.com/engine`, коммит `c88e680`), подписан Developer ID через `dist/sign-host.sh` (БЕЗ Xcode-логина — ручной путь работает), нотаризован (Accepted, id 419a4b5d) + застейплен; `spctl` = Notarized Developer ID. Залит в релиз v0.2.
+- Обе цепочки скачивания проверены curl'ом (302 → файл, 206 на range).
+- **Осталось до MVP:** (1) живой тест глазами — скачать с dl.meetamask.com/app как юзер, поставить, маска видна в Meet; (2) дёшево: проверка подписи движка при скачивании (F2).
+
+## Раздача движка — СДЕЛАНО (2026-06-10)
+- Код на GitHub: **github.com/metawhisp/meetmask** (public). Репо называется `meetmask` (без одной «a»).
+- Движок собран → подписан Developer ID (Andrey Dyuzhov, 6D6948Z4MW, inside-out через `dist/package-engine.sh`) → нотаризован + застейплен (`dist/notarize.sh`, профиль `meetamask`, статус Accepted) → `spctl` = «Notarized Developer ID».
+- Опубликован как **Release `v0.2`** (asset `MEETAMASKEngine.zip`, 132 МБ). Скачивается без авторизации.
+- `EngineInstaller.sourceURL` теперь → `https://github.com/metawhisp/meetmask/releases/latest/download/MEETAMASKEngine.zip` (env `MEETAMASK_ENGINE_URL` всё ещё оверрайдит для дева). Коммит `7542615`.
+- Старый мёртвый `dl.meetamask.app` (NXDOMAIN) больше не используется → блокер №1 закрыт.
+- **Осталось для «скачал → поставил → работает»:** (1) собрать+подписать+нотаризовать ХОСТ-приложение (`dist/sign-host.sh` + `notarize.sh`) и где-то выложить его на скачивание; (2) проверка подписи движка при скачивании (F2, дёшево); (3) живой тест глазами — маска доходит до Meet.
+
 ## Решения (кратко; детали — в SPEC.md и памяти проекта)
 - Архитектура: виртуальная камера (CMIOExtension). Chrome-расширение отвергнуто.
 - Оптимизируем под качество + удобство конечного пользователя.
