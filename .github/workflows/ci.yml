@@ -15,7 +15,7 @@ jobs:
     name: Unit tests
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: IP guard — no Homelander in the bundle
         run: bash tests/no_homelander_test.sh
@@ -34,7 +34,7 @@ jobs:
     name: Build host app (unsigned)
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install XcodeGen
         run: brew install xcodegen

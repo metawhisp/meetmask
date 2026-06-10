@@ -17,7 +17,7 @@
 ## МАСТЕР-ЧЕК-ЛИСТ (порядок = приоритет impact/effort)
 
 ### Quick wins (фундамент + первый «вау»)
-- [ ] **I1 — CI на push** (GitHub Actions гоняет 3 теста + сборку app без подписи).
+- [x] **I1 — CI на push** (GitHub Actions гоняет 3 теста + сборку app без подписи). ✅ зелёный.
 - [ ] **I2 — Гигиена процесса** (фикс рассинхрона notary-профиля; `make test-all`).
 - [ ] **I3 — Слой метаданных масок** (`Mask` += category/description/tags; источник данных).
 - [ ] **I4 — Визуальная галерея** (фильтр-пилюли по категориям + сетка + процедурные превью из `previews.js`).
@@ -49,9 +49,9 @@
 
 **Corner cases.** runner без xcodegen (ставим через brew); sysext-таргет с `CODE_SIGNING_ALLOWED=NO`; путь `/tmp` для бинарей тестов.
 
-**Статус:** 🟡 в работе.
+**Статус:** ✅ закрыта (CI зелёный: tests 13s, build 48s).
 
-## I2 — Гигиена процесса
+## I2 — Гигиена процесса  ← ТЕКУЩАЯ
 **User story.** Как мейнтейнер, я хочу один источник правды для тестов и согласованные имена профилей, чтобы скрипты не падали из-за дрейфа.
 **Приёмка.** `notarize.sh`/`release-notarize.sh`/`setup-notary.sh` используют одно имя профиля (`meetamask`); добавлен `make test-all` (или `dist/test-all.sh`), который CI и вызывает. **Статус:** ⬜
 
@@ -66,4 +66,4 @@
 ---
 
 ## Лог итераций
-- _(заполняется в конце каждой итерации: что изменилось, тесты, коммит)_
+- **I1 — CI (2026-06-10).** Добавлен `.github/workflows/ci.yml`: job `tests` (IP-гард + mask-policy `swiftc` + seqlock `clang++`) и job `build` (xcodegen + `xcodebuild build` без подписи). Оба зелёные на `metawhisp/meetmask` (tests 13s, build 48s). `checkout@v5` (Node 24). Коммиты `6408ea2`, далее бамп checkout. Узнал: workflow-файлы пушатся только keyring-токеном `gh` (у именованного нет scope `workflow`).
