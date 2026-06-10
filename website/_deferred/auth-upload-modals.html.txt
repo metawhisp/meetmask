@@ -1,0 +1,22 @@
+<!-- Removed from gallery.html for MVP (no fake auth/upload). Restore when Supabase +
+     a constrained mask format + signed app-manifest exist (post-MVP, see RELEASE-PLAN.md).
+     The matching JS stub is in _deferred/gallery-stub.js.txt. -->
+
+<div class="scrim" id="authModal"><div class="sheet">
+  <button class="close" data-close>×</button>
+  <h3 id="authTitle">Sign in</h3><p class="ms" id="authSub">An account lets you upload your own masks.</p>
+  <div class="field"><label>Email</label><input id="authEmail" type="email" placeholder="you@studio.com"/></div>
+  <div class="field"><label>Password</label><input id="authPass" type="password" placeholder="••••••••"/><div class="err" id="authErr">Enter an email and password.</div></div>
+  <button class="btn fill go" id="authGo">Sign in</button>
+  <div class="swap" id="authAlt">New here? <a id="authSwap">Create an account</a></div>
+</div></div>
+
+<div class="scrim" id="upModal"><div class="sheet">
+  <button class="close" data-close>×</button>
+  <h3>Upload a mask</h3><p class="ms">Goes to review first. Once curated, it joins the collection and the app.</p>
+  <div class="field"><label>Mask name</label><input id="upName" placeholder="e.g. Velvet Curtain"/><div class="err" id="upErrName">Give it a name.</div></div>
+  <div class="field"><label>File — image or .zip</label>
+    <div class="drop" id="drop">Drop a file, or click to browse<div id="dropName" style="margin-top:8px;color:var(--ink-2)"></div></div>
+    <input id="upFile" type="file" accept="image/*,.zip" hidden/><div class="err" id="upErrFile">Attach a file.</div></div>
+  <button class="btn fill go" id="upGo">Send for review</button>
+</div></div>

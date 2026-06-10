@@ -1,0 +1,382 @@
+{
+  "schemaVersion": 1,
+  "count": 47,
+  "masks": [
+    {
+      "id": "CatAttack",
+      "slug": "catattack",
+      "title": "CAT ATTACK",
+      "subtitle": "SWAT! COMBO! CHAOS!",
+      "category": "HAND",
+      "img": "assets/masks/catattack.webp"
+    },
+    {
+      "id": "SnowPile",
+      "slug": "snowpile",
+      "title": "SNOW PILE",
+      "subtitle": "STICKY SNOWFLAKES · SHAKE TO CLEAR",
+      "category": "FACE",
+      "img": "assets/masks/snowpile.webp"
+    },
+    {
+      "id": "RealityTear",
+      "slug": "realitytear",
+      "title": "REALITY TEAR",
+      "subtitle": "SPREAD HANDS TO RIP DIMENSIONS",
+      "category": "HAND",
+      "img": "assets/masks/realitytear.webp"
+    },
+    {
+      "id": "GestureSpells",
+      "slug": "gesturespells",
+      "title": "GESTURE SPELLS",
+      "subtitle": "SIX SPELLS, SIX GESTURES",
+      "category": "HAND",
+      "img": "assets/masks/gesturespells.webp"
+    },
+    {
+      "id": "PortalPull",
+      "slug": "portalpull",
+      "title": "PORTAL PULL",
+      "subtitle": "PALMS TOGETHER · OPEN THE VOID",
+      "category": "HAND",
+      "img": "assets/masks/portalpull.webp"
+    },
+    {
+      "id": "FaceGravity",
+      "slug": "facegravity",
+      "title": "FACE GRAVITY",
+      "subtitle": "FEATURES MELT · OPEN MOUTH TO RESET",
+      "category": "FACE",
+      "img": "assets/masks/facegravity.webp"
+    },
+    {
+      "id": "HeadBang",
+      "slug": "headbang",
+      "title": "HEADBANG",
+      "subtitle": "SHAKE FOR CONCERT MODE",
+      "category": "FACE",
+      "img": "assets/masks/headbang.webp"
+    },
+    {
+      "id": "AuraScan",
+      "slug": "aurascan",
+      "title": "AURA SCAN",
+      "subtitle": "REVEALS YOUR MOOD",
+      "category": "FACE",
+      "img": "assets/masks/aurascan.webp"
+    },
+    {
+      "id": "StareOff",
+      "slug": "stareoff",
+      "title": "STARE OFF",
+      "subtitle": "DON'T BLINK",
+      "category": "FACE",
+      "img": "assets/masks/stareoff.webp"
+    },
+    {
+      "id": "PoseStages",
+      "slug": "posestages",
+      "title": "POSE STAGES",
+      "subtitle": "TURN · TILT · SMILE TO CHANGE",
+      "category": "FACE",
+      "img": "assets/masks/posestages.webp"
+    },
+    {
+      "id": "TimeEcho",
+      "slug": "timeecho",
+      "title": "TIME ECHO",
+      "subtitle": "GHOSTS OF YOU",
+      "category": "FACE",
+      "img": "assets/masks/timeecho.webp"
+    },
+    {
+      "id": "Glasses",
+      "slug": "glasses",
+      "title": "GLASSES",
+      "subtitle": "AR GLASSES",
+      "category": "FACE",
+      "img": "assets/masks/glasses.webp"
+    },
+    {
+      "id": "IceCream",
+      "slug": "icecream",
+      "title": "ICE CREAM",
+      "subtitle": "WAFER + SCOOP + DRIPS",
+      "category": "FACE",
+      "img": "assets/masks/icecream.webp"
+    },
+    {
+      "id": "MouthFire",
+      "slug": "mouthfire",
+      "title": "FIRE",
+      "subtitle": "OPEN MOUTH = FLAMES",
+      "category": "FACE",
+      "img": "assets/masks/mouthfire.webp"
+    },
+    {
+      "id": "FaceMask",
+      "slug": "facemask",
+      "title": "FACE MASK",
+      "subtitle": "LOW-POLY VIDEO MESH",
+      "category": "FACE",
+      "img": "assets/masks/facemask.webp"
+    },
+    {
+      "id": "FingerPaint",
+      "slug": "fingerpaint",
+      "title": "FINGER PAINT",
+      "subtitle": "DRAW IN THE AIR",
+      "category": "HAND",
+      "img": "assets/masks/fingerpaint.webp"
+    },
+    {
+      "id": "AsciiCam",
+      "slug": "asciicam",
+      "title": "ASCII",
+      "subtitle": "CAMERA → GLYPHS",
+      "category": "PURE",
+      "img": "assets/masks/asciicam.webp"
+    },
+    {
+      "id": "PixelWarp",
+      "slug": "pixelwarp",
+      "title": "WARP",
+      "subtitle": "RGB SHIFT + NOISE",
+      "category": "PURE",
+      "img": "assets/masks/pixelwarp.webp"
+    },
+    {
+      "id": "Thermal",
+      "slug": "thermal",
+      "title": "THERMAL",
+      "subtitle": "INFRARED PALETTE",
+      "category": "PURE",
+      "img": "assets/masks/thermal.webp"
+    },
+    {
+      "id": "Halftone",
+      "slug": "halftone",
+      "title": "HALFTONE",
+      "subtitle": "NEWSPAPER DOTS",
+      "category": "PURE",
+      "img": "assets/masks/halftone.webp"
+    },
+    {
+      "id": "Sobel",
+      "slug": "sobel",
+      "title": "EDGES",
+      "subtitle": "SOBEL OPERATOR",
+      "category": "PURE",
+      "img": "assets/masks/sobel.webp"
+    },
+    {
+      "id": "Invert",
+      "slug": "invert",
+      "title": "INVERT",
+      "subtitle": "COLOR NEGATIVE",
+      "category": "PURE",
+      "img": "assets/masks/invert.webp"
+    },
+    {
+      "id": "Mosaic",
+      "slug": "mosaic",
+      "title": "MOSAIC",
+      "subtitle": "CHUNKY PIXELS",
+      "category": "PURE",
+      "img": "assets/masks/mosaic.webp"
+    },
+    {
+      "id": "Kaleidoscope",
+      "slug": "kaleidoscope",
+      "title": "KALEIDO",
+      "subtitle": "SIX-FOLD SYMMETRY",
+      "category": "PURE",
+      "img": "assets/masks/kaleidoscope.webp"
+    },
+    {
+      "id": "VHS",
+      "slug": "vhs",
+      "title": "VHS",
+      "subtitle": "ANALOG TAPE",
+      "category": "PURE",
+      "img": "assets/masks/vhs.webp"
+    },
+    {
+      "id": "Duotone",
+      "slug": "duotone",
+      "title": "DUOTONE",
+      "subtitle": "PINK + INK",
+      "category": "PURE",
+      "img": "assets/masks/duotone.webp"
+    },
+    {
+      "id": "Posterize",
+      "slug": "posterize",
+      "title": "POSTER",
+      "subtitle": "FOUR LEVELS",
+      "category": "PURE",
+      "img": "assets/masks/posterize.webp"
+    },
+    {
+      "id": "Caustics",
+      "slug": "caustics",
+      "title": "CAUSTICS",
+      "subtitle": "UNDERWATER LIGHT",
+      "category": "PURE",
+      "img": "assets/masks/caustics.webp"
+    },
+    {
+      "id": "Fisheye",
+      "slug": "fisheye",
+      "title": "FISHEYE",
+      "subtitle": "BARREL LENS",
+      "category": "PURE",
+      "img": "assets/masks/fisheye.webp"
+    },
+    {
+      "id": "Bleach",
+      "slug": "bleach",
+      "title": "BLEACH",
+      "subtitle": "FILM BYPASS",
+      "category": "PURE",
+      "img": "assets/masks/bleach.webp"
+    },
+    {
+      "id": "HexPixel",
+      "slug": "hexpixel",
+      "title": "HEX",
+      "subtitle": "HEXAGONAL GRID",
+      "category": "PURE",
+      "img": "assets/masks/hexpixel.webp"
+    },
+    {
+      "id": "Polar",
+      "slug": "polar",
+      "title": "POLAR",
+      "subtitle": "SWIRL TWIST",
+      "category": "PURE",
+      "img": "assets/masks/polar.webp"
+    },
+    {
+      "id": "LineRain",
+      "slug": "linerain",
+      "title": "RAIN",
+      "subtitle": "FALLING TRAILS",
+      "category": "PURE",
+      "img": "assets/masks/linerain.webp"
+    },
+    {
+      "id": "Crosshatch",
+      "slug": "crosshatch",
+      "title": "HATCH",
+      "subtitle": "PENCIL SKETCH",
+      "category": "PURE",
+      "img": "assets/masks/crosshatch.webp"
+    },
+    {
+      "id": "Plasma",
+      "slug": "plasma",
+      "title": "PLASMA",
+      "subtitle": "COLOR CYCLE",
+      "category": "PURE",
+      "img": "assets/masks/plasma.webp"
+    },
+    {
+      "id": "Bloom",
+      "slug": "bloom",
+      "title": "BLOOM",
+      "subtitle": "NEON HIGHLIGHTS",
+      "category": "PURE",
+      "img": "assets/masks/bloom.webp"
+    },
+    {
+      "id": "EyeLasers",
+      "slug": "eyelasers",
+      "title": "EYE LASERS",
+      "subtitle": "GAZE TO BURN",
+      "category": "FACE",
+      "img": "assets/masks/eyelasers.webp"
+    },
+    {
+      "id": "FaceDots",
+      "slug": "facedots",
+      "title": "FACE DOTS",
+      "subtitle": "MEDIAPIPE 478",
+      "category": "FACE",
+      "img": "assets/masks/facedots.webp"
+    },
+    {
+      "id": "FaceMesh",
+      "slug": "facemesh",
+      "title": "MESH",
+      "subtitle": "WIREFRAME",
+      "category": "FACE",
+      "img": "assets/masks/facemesh.webp"
+    },
+    {
+      "id": "FaceFill",
+      "slug": "facefill",
+      "title": "FACE FILL",
+      "subtitle": "NEON MASK",
+      "category": "FACE",
+      "img": "assets/masks/facefill.webp"
+    },
+    {
+      "id": "FaceLines",
+      "slug": "facelines",
+      "title": "LINES",
+      "subtitle": "EYES + LIPS",
+      "category": "FACE",
+      "img": "assets/masks/facelines.webp"
+    },
+    {
+      "id": "EyeZoom",
+      "slug": "eyezoom",
+      "title": "EYE ZOOM",
+      "subtitle": "MAGNIFY EYES",
+      "category": "FACE",
+      "img": "assets/masks/eyezoom.webp"
+    },
+    {
+      "id": "Scan",
+      "slug": "scan",
+      "title": "SCAN",
+      "subtitle": "REVEAL LINE",
+      "category": "EXPERIMENTAL",
+      "img": "assets/masks/scan.webp"
+    },
+    {
+      "id": "PixelDrift",
+      "slug": "pixeldrift",
+      "title": "DRIFT",
+      "subtitle": "PULL TOWARD CURSOR",
+      "category": "EXPERIMENTAL",
+      "img": "assets/masks/pixeldrift.webp"
+    },
+    {
+      "id": "Shards",
+      "slug": "shards",
+      "title": "SHARDS",
+      "subtitle": "VORONOI SHATTER",
+      "category": "EXPERIMENTAL",
+      "img": "assets/masks/shards.webp"
+    },
+    {
+      "id": "CRT",
+      "slug": "crt",
+      "title": "CRT",
+      "subtitle": "PHOSPHOR + GLASS",
+      "category": "EXPERIMENTAL",
+      "img": "assets/masks/crt.webp"
+    },
+    {
+      "id": "Feedback",
+      "slug": "feedback",
+      "title": "TRAIL",
+      "subtitle": "RADIAL ZOOM",
+      "category": "EXPERIMENTAL",
+      "img": "assets/masks/feedback.webp"
+    }
+  ]
+}

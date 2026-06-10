@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MEETAMASK — wear a mask on any video call</title>
+<style>
+:root{
+  --bg:#fbfbfa; --ink:#171717; --ink-2:#56544f; --gray:#8f8c85;
+  --line:#d8d6d0; --line-2:#e6e4de; --line-strong:#c7c7c7;
+  --serif:"Times New Roman",Times,serif;
+  --sans:"Helvetica Neue",Helvetica,"Arial Nova",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Menlo","Roboto Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+a{color:inherit;text-decoration:none}
+html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;min-height:100vh}
+::selection{background:var(--ink);color:var(--bg)}
+.shell{max-width:1240px;margin:0 auto;padding:0 40px}
+@media(max-width:640px){.shell{padding:0 22px}}
+
+.mono{font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;font-size:12px;line-height:1}
+.kick{font-family:var(--mono);text-transform:uppercase;letter-spacing:.16em;font-size:11.5px;color:var(--gray)}
+.pill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-strong);border-radius:7px;background:#fff;padding:8px 12px;color:var(--ink-2)}
+.pill .rad{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--ink);position:relative}
+.pill .rad::after{content:"";position:absolute;inset:2px;border-radius:50%;background:var(--ink)}
+
+header{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line-2)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:70px}
+.logo{display:flex;align-items:center;gap:11px}
+.logo svg{width:25px;height:25px}
+.logo .n{font-family:var(--serif);font-weight:700;font-size:21px;letter-spacing:.01em}
+.nav-mid{display:flex;gap:30px}
+.nav-mid a{font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;font-size:11.5px;color:var(--ink-2);transition:color .15s}
+.nav-mid a:hover{color:var(--ink)}
+.nav-r{display:flex;gap:9px;align-items:center}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;border:1px solid transparent;transition:background .18s,color .18s,border-color .18s,transform .18s}
+.btn .mono{font-size:12px}
+.btn-ink{height:48px;padding:0 20px;border-radius:8px;background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn-ink:hover{background:#000;transform:translateY(-1px)}.btn-ink svg{width:15px;height:15px}
+.btn-line{height:48px;padding:0 18px;border-radius:8px;background:#fff;color:var(--ink);border-color:var(--line-strong)}
+.btn-line:hover{border-color:var(--ink)}.btn-line svg{width:15px;height:15px;transition:transform .18s}.btn-line:hover svg{transform:translateX(3px)}
+.btn-sm{height:40px;border-radius:7px}.btn-sm.btn-ink{padding:0 15px}.btn-sm.btn-line{padding:0 14px}
+
+/* ---------- hero ---------- */
+.hero{padding:74px 0 92px}
+.wrap{display:grid;grid-template-columns:1.02fr .98fr;gap:56px;align-items:center}
+@media(max-width:940px){.wrap{grid-template-columns:1fr;gap:44px}.nav-mid{display:none}.stage{order:-1}}
+h1{font-family:var(--serif);font-weight:700;text-transform:uppercase;font-size:clamp(44px,6vw,88px);line-height:.93;letter-spacing:-.005em;margin-top:24px;color:#121110}
+h1 i{font-style:italic;font-weight:400}
+.lead{font-size:clamp(16px,1.4vw,18px);line-height:1.55;color:var(--ink-2);max-width:44ch;margin-top:24px}
+.cta{display:flex;gap:9px;align-items:center;margin-top:34px;flex-wrap:wrap}
+.trust{margin-top:26px;color:var(--gray)}
+.trust .mono{display:inline-flex;gap:10px;align-items:center;font-size:11.5px;letter-spacing:.06em;flex-wrap:wrap}
+.trust b{color:var(--ink-2);font-weight:600}.trust .x{color:var(--line-strong)}
+
+.stage{position:relative}
+.cam{background:#fff;border:1px solid var(--line-strong);border-radius:12px;overflow:hidden;box-shadow:0 24px 54px -34px rgba(20,18,14,.4)}
+.cam-top{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line-2);color:var(--ink-2)}
+.cam-top .ico{width:14px;height:14px}
+.cam-top .live{margin-left:auto;display:inline-flex;align-items:center;gap:6px;color:var(--ink)}
+.cam-top .live i{width:7px;height:7px;border-radius:50%;background:var(--ink)}
+.gridwrap{margin:14px;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.grid{position:relative;background:#14130f;overflow:hidden;font-size:0;line-height:0}
+.base{display:block;width:100%;height:auto;filter:grayscale(1) contrast(1.02) brightness(.99)}
+.cell{position:absolute;width:33.34%;height:50%;overflow:hidden;opacity:0}
+.cell>img{position:absolute;width:300%;height:200%;max-width:none;display:block}
+.c0{left:0;top:0}.c0>img{left:0;top:0}
+.c1{left:33.333%;top:0}.c1>img{left:-100%;top:0}
+.c2{left:66.666%;top:0}.c2>img{left:-200%;top:0}
+.c3{left:0;top:50%}.c3>img{left:0;top:-100%}
+.c4{left:33.333%;top:50%}.c4>img{left:-100%;top:-100%}
+.c5{left:66.666%;top:50%}.c5>img{left:-200%;top:-100%}
+.boom{position:absolute;left:50%;top:75%;width:30%;aspect-ratio:1;transform:translate(-50%,-50%) scale(0);border-radius:50%;border:3px solid #ffce3a;opacity:0;pointer-events:none;z-index:3}
+.boom::after{content:"";position:absolute;inset:22%;border-radius:50%;border:2px solid #ff7a36;opacity:.85}
+.cap{display:flex;align-items:center;gap:8px;padding:0 16px 14px;color:var(--gray)}
+.cap .mono{font-size:10px;letter-spacing:.12em}
+@keyframes light{0%{opacity:0}100%{opacity:1}}
+@keyframes boom{0%{opacity:0;transform:translate(-50%,-50%) scale(.1)}20%{opacity:.95}55%{opacity:.45}100%{opacity:0;transform:translate(-50%,-50%) scale(2.3)}}
+.go .c4{animation:light .5s ease .15s forwards}
+.go .boom{animation:boom .9s cubic-bezier(.2,.7,.3,1) 1.0s forwards}
+.go .c1{animation:light .5s ease 1.35s forwards}
+.go .c3{animation:light .5s ease 1.55s forwards}
+.go .c5{animation:light .5s ease 1.75s forwards}
+.go .c0{animation:light .5s ease 2.05s forwards}
+.go .c2{animation:light .5s ease 2.25s forwards}
+
+/* ---------- shared sections ---------- */
+.sec{padding:88px 0;border-top:1px solid var(--line-2)}
+.sec h2{font-family:var(--serif);font-weight:700;text-transform:uppercase;font-size:clamp(30px,3.8vw,48px);line-height:1.0;letter-spacing:-.01em;margin-top:14px;color:#121110}
+.sec .sub{font-size:16.5px;color:var(--ink-2);max-width:52ch;margin-top:14px}
+
+.logos{padding:30px 0;border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2)}
+.logos .row{display:flex;align-items:center;justify-content:center;gap:clamp(16px,4vw,44px);flex-wrap:wrap}
+.logos .cap{flex-basis:100%;text-align:center;margin-bottom:15px}
+.wm{font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;font-size:13px;color:var(--gray);transition:color .15s}
+.wm:hover{color:var(--ink)}
+
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:38px;margin-top:46px}
+.step{border-top:1px solid var(--ink);padding-top:20px}
+.step .no{font-family:var(--serif);font-weight:700;font-size:50px;line-height:.9;color:#121110}
+.step h3{font-family:var(--serif);font-weight:700;font-size:23px;margin-top:13px;text-transform:uppercase;letter-spacing:-.01em}
+.step p{font-size:15px;color:var(--ink-2);margin-top:9px;max-width:34ch}
+@media(max-width:760px){.steps{grid-template-columns:1fr;gap:26px}}
+
+.bento{display:grid;grid-template-columns:repeat(6,1fr);gap:13px;margin-top:46px}
+.cell{border:1px solid var(--line-strong);border-radius:12px;padding:24px;background:#fff;grid-column:span 2;transition:border-color .18s,transform .18s}
+.cell:hover{border-color:var(--ink);transform:translateY(-2px)}
+.cell.wide{grid-column:span 3}.cell.tall{grid-row:span 2}
+.cell .ck{font-family:var(--mono);text-transform:uppercase;letter-spacing:.12em;font-size:10.5px;color:var(--gray)}
+.cell h4{font-family:var(--serif);font-weight:700;font-size:22px;margin:11px 0 8px;text-transform:uppercase;letter-spacing:-.01em}
+.cell p{font-size:14.5px;color:var(--ink-2);max-width:42ch}
+.cell .big{font-family:var(--serif);font-weight:700;font-size:52px;line-height:.95;color:#121110;display:block}
+@media(max-width:880px){.bento{grid-template-columns:1fr 1fr}.cell,.cell.wide{grid-column:span 1}.cell.tall{grid-row:auto}}
+@media(max-width:560px){.bento{grid-template-columns:1fr}}
+
+.mteaser{display:flex;gap:12px;margin-top:40px;flex-wrap:wrap}
+.mteaser a{position:relative;display:block}
+.mteaser img{width:118px;height:118px;border-radius:11px;object-fit:cover;border:1px solid var(--line-strong);transition:transform .18s,box-shadow .18s}
+.mteaser a:hover img{transform:translateY(-3px);box-shadow:0 12px 24px -14px rgba(20,18,14,.4)}
+@media(max-width:640px){.mteaser img{width:84px;height:84px}}
+
+.final{border:1px solid var(--line-strong);border-radius:16px;padding:74px 40px;text-align:center;background:#fff}
+.final h2{font-family:var(--serif);font-weight:700;text-transform:uppercase;font-size:clamp(32px,4.4vw,58px);line-height:.98;letter-spacing:-.01em;margin-top:14px;color:#121110}
+.final .cta{justify-content:center;margin-top:28px}
+
+footer{border-top:1px solid var(--line-2);padding:46px 0}
+.foot{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.foot .mono{font-size:11px;letter-spacing:.06em;color:var(--gray)}
+
+.reveal{opacity:0;transform:translateY(16px)}
+.reveal.in{opacity:1;transform:none;transition:opacity .6s ease,transform .6s cubic-bezier(.2,.7,.3,1)}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);opacity:0;z-index:99;pointer-events:none;background:var(--ink);color:var(--bg);padding:12px 17px;border-radius:9px;font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.06em;transition:.22s cubic-bezier(.2,.8,.3,1)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media(prefers-reduced-motion:reduce){.cell{opacity:1!important;animation:none!important}.base,.boom{display:none}.reveal{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<svg style="display:none"><symbol id="mask" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="232" fill="#171717"/>
+  <path d="M512,162C650,164 732,252 742,402C750,524 728,656 650,768C596,846 556,876 512,876C468,876 428,846 374,768C296,656 274,524 282,402C292,252 374,164 512,162Z" fill="#fbfbfa"/>
+  <g fill="#171717"><path d="M366,452C392,424 462,424 488,452C462,482 392,482 366,452Z"/><path d="M536,452C562,424 632,424 658,452C632,482 562,482 536,452Z"/></g>
+  <ellipse cx="489" cy="616" rx="9" ry="13" fill="#8f8c85"/><ellipse cx="535" cy="616" rx="9" ry="13" fill="#8f8c85"/>
+  <path d="M452,720C488,727 536,727 572,720" fill="none" stroke="#6f6c64" stroke-width="9" stroke-linecap="round"/>
+</symbol></svg>
+
+<header><div class="shell nav">
+  <a class="logo" href="./index.html"><svg><use href="#mask"/></svg><span class="n">MEETAMASK</span></a>
+  <nav class="nav-mid"><a href="#how">How it works</a><a href="#features">Features</a><a href="./gallery.html">Masks</a></nav>
+  <div class="nav-r"><a class="btn btn-sm btn-line" href="./gallery.html"><span class="mono">See all masks</span></a><button class="btn btn-sm btn-ink dl"><span class="mono">Download</span></button></div>
+</div></header>
+
+<main>
+<!-- HERO -->
+<section class="hero"><div class="shell wrap">
+  <div class="copy">
+    <span class="pill mono"><span class="rad"></span>Virtual camera · macOS</span>
+    <h1>Wear any<br/>mask <i>on</i> the call.</h1>
+    <p class="lead">A virtual camera with live, interactive masks. Pick one and it streams straight into Zoom, Meet or Teams — reacting to your face and hands in real time.</p>
+    <div class="cta">
+      <button class="btn btn-ink dl">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4.2-4.2M12 15l4.2-4.2M4.5 21h15"/></svg>
+        <span class="mono">Download for macOS</span>
+      </button>
+      <a class="btn btn-line" href="./gallery.html"><span class="mono">See all masks</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6l6 6-6 6"/></svg>
+      </a>
+    </div>
+    <div class="trust"><span class="mono"><b>47 masks</b><span class="x">/</span>notarized for macOS<span class="x">/</span><b>452 KB</b> to start</span></div>
+  </div>
+
+  <div class="stage">
+    <figure class="cam">
+      <div class="cam-top">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="6" width="13" height="12" rx="2.5"/><path d="M16 10l5-3v10l-5-3z"/></svg>
+        <span class="mono">MEETAMASK · Group call</span>
+        <span class="live mono"><i></i>Live</span>
+      </div>
+      <div class="gridwrap">
+        <div class="grid" id="grid" role="img" aria-label="A six-person video call where one person — wearing a MEETAMASK mask — lights up the whole call in colour">
+          <img class="base" src="./assets/hero/grid.png" alt=""/>
+          <div class="cell c0"><img src="./assets/hero/grid.png" alt=""/></div>
+          <div class="cell c1"><img src="./assets/hero/grid.png" alt=""/></div>
+          <div class="cell c2"><img src="./assets/hero/grid.png" alt=""/></div>
+          <div class="cell c3"><img src="./assets/hero/grid.png" alt=""/></div>
+          <div class="cell c4"><img src="./assets/hero/grid.png" alt=""/></div>
+          <div class="cell c5"><img src="./assets/hero/grid.png" alt=""/></div>
+          <div class="boom"></div>
+        </div>
+      </div>
+      <div class="cap"><span class="mono">6 on the call · 1 wearing a mask · the rest light up</span></div>
+    </figure>
+  </div>
+</div></section>
+
+<!-- LOGO STRIP -->
+<div class="logos"><div class="shell">
+  <div class="cap"><span class="kick">Works with any app that accepts a virtual camera</span></div>
+  <div class="row"><span class="wm">Zoom</span><span class="wm">Google&nbsp;Meet</span><span class="wm">Microsoft&nbsp;Teams</span><span class="wm">Discord</span><span class="wm">OBS</span><span class="wm">Slack</span></div>
+</div></div>
+
+<!-- HOW IT WORKS -->
+<section class="sec" id="how"><div class="shell">
+  <div class="reveal"><span class="kick">How it works</span><h2>Three steps,<br/>then you're masked.</h2></div>
+  <div class="steps">
+    <div class="step reveal"><div class="no">01</div><h3>Download</h3><p>A 452&nbsp;KB app for macOS. The render engine streams in once, on first launch.</p></div>
+    <div class="step reveal"><div class="no">02</div><h3>Pick a mask</h3><p>Eye lasers, hand portals, fire, gravity, filters — masks that react to your face, hands, or the camera.</p></div>
+    <div class="step reveal"><div class="no">03</div><h3>Select the camera</h3><p>Choose <em style="font-style:normal;border-bottom:1px solid var(--line-strong)">MEETAMASK&nbsp;Camera</em> in Zoom or Meet, and you're wearing the mask on the call.</p></div>
+  </div>
+</div></section>
+
+<!-- FEATURES -->
+<section class="sec" id="features"><div class="shell">
+  <div class="reveal"><span class="kick">Why it's different</span><h2>Built to stay on,<br/>stay smooth.</h2></div>
+  <div class="bento">
+    <div class="cell wide tall reveal"><span class="ck">⌘H · Off-screen</span><h4>Renders off-screen</h4><p>The mask renders in a separate engine, off-screen — it isn't tied to the app window being in front.</p></div>
+    <div class="cell wide reveal"><span class="ck">Compatible</span><h4>Works as a camera</h4><p>Any app that accepts a virtual camera — Zoom, Meet, Teams, Discord, OBS.</p></div>
+    <div class="cell wide reveal"><span class="ck">Tracking</span><h4>Face &amp; hands</h4><p>MediaPipe tracking — masks follow your expression and gestures.</p></div>
+    <div class="cell reveal"><span class="big">452</span><h4>KB to start</h4><p>Tiny download; the GPU engine streams in once, designed for a clean 1280×720 at 30&nbsp;fps.</p></div>
+    <div class="cell reveal"><span class="big">47</span><h4>Masks built in</h4><p>Face, hand, camera and filter effects — every one ships with the app.</p></div>
+    <div class="cell reveal"><span class="ck">Distribution</span><h4>Notarized</h4><p>Signed &amp; notarized for macOS — opens clean on any Mac, no warnings.</p></div>
+  </div>
+</div></section>
+
+<!-- MASKS COLLECTION -->
+<section class="sec"><div class="shell">
+  <div class="reveal"><span class="kick">The collection</span><h2>Forty-seven masks,<br/>all built in.</h2><p class="sub">Face, hand, camera and filter effects — wear any of them on a call.</p></div>
+  <div class="mteaser reveal">
+    <a href="./gallery.html"><img src="./assets/masks/portalpull.webp" alt="Portal Pull"/></a>
+    <a href="./gallery.html"><img src="./assets/masks/mouthfire.webp" alt="Mouth Fire"/></a>
+    <a href="./gallery.html"><img src="./assets/masks/kaleidoscope.webp" alt="Kaleidoscope"/></a>
+    <a href="./gallery.html"><img src="./assets/masks/thermal.webp" alt="Thermal"/></a>
+    <a href="./gallery.html"><img src="./assets/masks/realitytear.webp" alt="Reality Tear"/></a>
+    <a href="./gallery.html"><img src="./assets/masks/facemask.webp" alt="Face Mask"/></a>
+    <a href="./gallery.html"><img src="./assets/masks/glasses.webp" alt="Glasses"/></a>
+    <a href="./gallery.html"><img src="./assets/masks/bloom.webp" alt="Bloom"/></a>
+  </div>
+  <div style="margin-top:26px"><a class="btn btn-line" href="./gallery.html"><span class="mono">See all 47 masks</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6l6 6-6 6"/></svg></a></div>
+</div></section>
+
+<!-- FINAL CTA -->
+<section class="sec"><div class="shell">
+  <div class="final reveal">
+    <span class="kick">Get started</span>
+    <h2>Put on a mask<br/>for your next call.</h2>
+    <div class="cta">
+      <button class="btn btn-ink dl"><span class="mono">Download for macOS</span></button>
+      <a class="btn btn-line" href="./gallery.html"><span class="mono">See all masks</span></a>
+    </div>
+  </div>
+</div></section>
+</main>
+
+<footer><div class="shell foot">
+  <a class="logo" href="./index.html"><svg style="width:22px;height:22px"><use href="#mask"/></svg><span class="n" style="font-size:17px">MEETAMASK</span></a>
+  <div class="mono">© 2026 · a stage for your webcam</div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const grid = document.getElementById('grid');
+  function play(){ grid.classList.remove('go'); void grid.offsetWidth; grid.classList.add('go'); }
+  play();
+  if(!location.search.includes('shot')) setInterval(play, 6500);   // gentle loop (no replay button)
+
+  // download buttons — honest placeholder until the CDN link is wired
+  const toast = document.getElementById('toast');
+  let tt; function say(m){ toast.textContent = m; toast.classList.add('show'); clearTimeout(tt); tt = setTimeout(()=>toast.classList.remove('show'), 2600); }
+  document.querySelectorAll('.dl').forEach(b => b.onclick = () => say('Download link coming soon — the notarized build is ready'));
+
+  // scroll reveal
+  const io = new IntersectionObserver((es)=>es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} }), {threshold:.12, rootMargin:'0px 0px -8% 0px'});
+  document.querySelectorAll('.reveal').forEach((el,i)=>{ el.style.transitionDelay = Math.min(i%3*70,180)+'ms'; io.observe(el); });
+</script>
+</body>
+</html>

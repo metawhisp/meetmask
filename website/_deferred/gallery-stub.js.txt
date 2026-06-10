@@ -1,0 +1,125 @@
+// Gallery — real catalog from china_web + filters + sign-in + upload.
+// Mask tiles use static webp previews captured from the live effect registry
+// (build via china_web/tools/run-capture.sh). Auth/upload is a localStorage
+// stub until Supabase (see PROGRESS.md). No hand-typed mask data.
+const $ = (s) => document.querySelector(s);
+const toast = (m) => {
+  const t = $('#toast'); t.textContent = m; t.classList.add('show');
+  clearTimeout(t._); t._ = setTimeout(() => t.classList.remove('show'), 2600);
+};
+const DB = {
+  user: () => JSON.parse(localStorage.getItem('mm_user') || 'null'),
+  setUser: (u) => localStorage.setItem('mm_user', JSON.stringify(u)),
+  signout: () => localStorage.removeItem('mm_user'),
+  masks: () => JSON.parse(localStorage.getItem('mm_masks') || '[]'),
+  add: (m) => { const a = DB.masks(); a.unshift(m); localStorage.setItem('mm_masks', JSON.stringify(a)); },
+};
+const DEMO = 'http://localhost:8800/';
+
+// Real china_web categories -> user-facing labels.
+const CAT_LABEL = { HAND: 'Hands', FACE: 'Face', PURE: 'Filters', EXPERIMENTAL: 'Lab' };
+const TABS = ['All', 'HAND', 'FACE', 'PURE', 'EXPERIMENTAL'];
+
+let CATALOG = [];
+let filter = 'All';
+const pad = (n) => String(n).padStart(2, '0');
+
+function plate(m, no) {
+  const cat = CAT_LABEL[m.category] || m.category;
+  return `<article class="mask" data-id="${m.id}" data-title="${m.title}">
+    <img class="thumb" src="./${m.img}" alt="${m.title}" loading="lazy" width="320" height="320"/>
+    <div class="scrim"></div>
+    <div class="no">No.&nbsp;${no}</div>
+    <div class="try">Try in browser →</div>
+    <div class="meta">
+      <div class="row"><h4>${m.title}</h4><span class="tag">${cat}</span></div>
+      ${m.subtitle ? `<div class="sub">${m.subtitle}</div>` : ''}
+    </div>
+  </article>`;
+}
+function pendingPlate(m, no) {
+  return `<article class="mask pending" data-pending="1" data-title="${m.name}">
+    <div class="ph"><svg viewBox="0 0 1024 1024"><use href="#mask"/></svg></div>
+    <div class="scrim"></div>
+    <div class="no">No.&nbsp;${no}</div>
+    <div class="meta"><div class="row"><h4>${m.name}</h4><span class="tag rev">In review</span></div>
+      <div class="sub">Submitted by you</div></div>
+  </article>`;
+}
+
+function renderTabs() {
+  $('#tabs').innerHTML = TABS.map((c) => {
+    const label = c === 'All' ? 'All' : (CAT_LABEL[c] || c);
+    const n = c === 'All' ? CATALOG.length : CATALOG.filter((m) => m.category === c).length;
+    return `<button class="tab ${c === filter ? 'on' : ''}" data-c="${c}">${label}${c !== 'All' ? ` <span class="cnt">${n}</span>` : ''}</button>`;
+  }).join('');
+  $('#tabs').querySelectorAll('.tab').forEach((b) => b.onclick = () => { filter = b.dataset.c; renderTabs(); renderGrid(); });
+}
+
+function renderGrid() {
+  const items = filter === 'All' ? CATALOG : CATALOG.filter((m) => m.category === filter);
+  let html = '';
+  let no = 1;
+  if (filter === 'All') for (const p of DB.masks()) html += pendingPlate(p, pad(no++));
+  for (const m of items) html += plate(m, pad(no++));
+  const add = `<article class="mask add" id="uploadTile"><div class="plus">+</div><div>Upload yours</div></article>`;
+  $('#grid').innerHTML = (html || `<div class="empty">No masks here yet.</div>`) + (filter === 'All' ? add : '');
+  const up = $('#uploadTile'); if (up) up.onclick = () => requireAuth(openUpload);
+  $('#grid').querySelectorAll('.mask:not(.add)').forEach((el) => el.onclick = () => {
+    if (el.dataset.pending === '1') { toast('In review — we’ll publish it once curated'); return; }
+    toast(`Opening “${el.dataset.title}” in the browser demo…`);
+    window.open(DEMO + '?autostart=' + encodeURIComponent(el.dataset.id), '_blank');
+  });
+}
+
+// ---- auth (localStorage stub) ----
+let mode = 'in';
+function openAuth(m = 'in') {
+  mode = m;
+  $('#authTitle').textContent = m === 'in' ? 'Sign in' : 'Create an account';
+  $('#authGo').textContent = m === 'in' ? 'Sign in' : 'Create account';
+  $('#authAlt').innerHTML = m === 'in' ? 'New here? <a id="authSwap">Create an account</a>' : 'Have an account? <a id="authSwap">Sign in</a>';
+  $('#authSwap').onclick = () => openAuth(m === 'in' ? 'up' : 'in');
+  $('#authErr').classList.remove('show'); $('#authModal').classList.add('open'); $('#authEmail').focus();
+}
+$('#authGo').onclick = () => {
+  const e = $('#authEmail').value.trim(), p = $('#authPass').value;
+  if (!e || !p) { $('#authErr').classList.add('show'); return; }
+  DB.setUser({ email: e }); $('#authModal').classList.remove('open'); refreshUser(); toast(mode === 'in' ? 'Welcome back' : 'Account created');
+};
+function refreshUser() { const u = DB.user(); $('#who').textContent = u ? u.email : ''; $('#signinBtn').textContent = u ? 'Sign out' : 'Sign in'; }
+$('#signinBtn').onclick = () => { if (DB.user()) { DB.signout(); refreshUser(); toast('Signed out'); } else openAuth('in'); };
+function requireAuth(fn) { if (DB.user()) fn(); else { openAuth('up'); toast('Create an account to upload a mask'); } }
+
+// ---- upload (localStorage stub; Supabase later) ----
+let file = null;
+function openUpload() {
+  file = null; $('#upName').value = ''; $('#dropName').textContent = '';
+  ['upErrName', 'upErrFile'].forEach((i) => $('#' + i).classList.remove('show'));
+  $('#upModal').classList.add('open'); $('#upName').focus();
+}
+$('#drop').onclick = () => $('#upFile').click();
+$('#upFile').onchange = (e) => { file = e.target.files[0]; $('#dropName').textContent = file?.name || ''; };
+$('#drop').ondragover = (e) => { e.preventDefault(); $('#drop').style.borderColor = 'var(--ink)'; };
+$('#drop').ondragleave = () => $('#drop').style.borderColor = '';
+$('#drop').ondrop = (e) => { e.preventDefault(); $('#drop').style.borderColor = ''; file = e.dataTransfer.files[0]; $('#dropName').textContent = file?.name || ''; };
+$('#upGo').onclick = () => {
+  const n = $('#upName').value.trim();
+  $('#upErrName').classList.toggle('show', !n); $('#upErrFile').classList.toggle('show', !file);
+  if (!n || !file) return;
+  DB.add({ name: n, by: DB.user().email, ts: Date.now() }); // TODO Supabase storage + insert status:'pending'
+  $('#upModal').classList.remove('open'); if (filter !== 'All') { filter = 'All'; renderTabs(); } renderGrid();
+  toast('Sent for review — thanks');
+};
+
+document.querySelectorAll('[data-close]').forEach((x) => x.onclick = (e) => e.target.closest('.scrim').classList.remove('open'));
+document.querySelectorAll('.scrim').forEach((bg) => bg.onclick = (e) => { if (e.target === bg) bg.classList.remove('open'); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('.scrim.open').forEach((s) => s.classList.remove('open')); });
+$('#uploadBtn').onclick = () => requireAuth(openUpload);
+
+// ---- boot ----
+refreshUser();
+fetch('./catalog.json')
+  .then((r) => r.json())
+  .then((d) => { CATALOG = d.masks || []; renderTabs(); renderGrid(); })
+  .catch(() => { CATALOG = []; renderTabs(); renderGrid(); toast('Could not load catalog.json'); });

@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MEETAMASK — wear a mask on any video call</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+<style>
+  /* hero */
+  .hero{padding:var(--sp-20) 0 var(--sp-16)}
+  .hero .grid{display:grid;grid-template-columns:1.02fr .98fr;gap:var(--sp-16);align-items:center}
+  .hero h1{margin:var(--sp-4) 0 var(--sp-6)}
+  .hero .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:var(--sp-8)}
+  @media(max-width:880px){.hero .grid{grid-template-columns:1fr;gap:var(--sp-8)}.callgrid{order:-1}}
+
+  /* call-grid mock */
+  .callgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--bg-2);
+    box-shadow:0 30px 70px -34px color-mix(in oklch,var(--ink) 40%,transparent)}
+  .tile{aspect-ratio:16/11;border-radius:12px;position:relative;overflow:hidden;background:var(--bg-3);display:grid;place-items:center}
+  .tile .av{width:54px;height:54px;border-radius:50%;background:color-mix(in oklch,var(--ink) 16%,var(--bg-3))}
+  .tile .nm{position:absolute;left:10px;bottom:9px;font-size:12px;color:var(--ink-2);background:color-mix(in oklch,var(--bg) 70%,transparent);padding:2px 8px;border-radius:6px}
+  .tile.you{background:#0c0b0a}
+  .tile.you svg{width:74px;height:74px}
+  .tile.you .nm{color:#eee;background:rgba(0,0,0,.4)}
+  .tile.you .rec{position:absolute;right:10px;top:9px;display:flex;align-items:center;gap:6px;font-size:11px;color:#fff;background:rgba(0,0,0,.4);padding:3px 8px;border-radius:999px}
+  .tile.you .rec i{width:7px;height:7px;border-radius:50%;background:oklch(.62 .2 28)}
+
+  /* logo strip */
+  .logos{padding:var(--sp-12) 0;border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft)}
+  .logos .row{display:flex;align-items:center;justify-content:center;gap:clamp(20px,5vw,56px);flex-wrap:wrap}
+  .logos .lab{flex-basis:100%;text-align:center;margin-bottom:var(--sp-6)}
+  .wm{font-weight:700;font-size:19px;letter-spacing:-.02em;color:var(--muted);opacity:.85;transition:.15s}
+  .wm:hover{color:var(--ink-2);opacity:1}
+
+  section.blk{padding:var(--sp-28) 0}
+  .center{text-align:center}.center .lead{margin:14px auto 0}
+
+  /* video */
+  .video{margin-top:var(--sp-12);aspect-ratio:16/9;border-radius:18px;border:1px solid var(--line);background:#0c0b0a;
+    position:relative;display:grid;place-items:center;overflow:hidden}
+  .video .play{width:84px;height:84px;border-radius:50%;background:rgba(255,255,255,.96);display:grid;place-items:center;cursor:pointer;transition:transform .16s}
+  .video .play:hover{transform:scale(1.06)}
+  .video .play svg{width:30px;height:30px;margin-left:4px;fill:#0c0b0a}
+  .video .cap{position:absolute;bottom:18px;color:#cfccc6;font-size:13.5px}
+  .video .badge{position:absolute;top:16px;left:16px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#bdb9b2;border:1px solid rgba(255,255,255,.18);padding:4px 9px;border-radius:999px}
+
+  /* steps 1-2-3 */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-8);margin-top:var(--sp-16);counter-reset:s}
+  .step{position:relative;padding-top:var(--sp-8);border-top:2px solid var(--ink)}
+  .step .no{font-family:var(--disp);font-weight:500;font-size:46px;line-height:.8;margin-bottom:var(--sp-4)}
+  .step h3{font-family:var(--disp);font-weight:500;font-size:24px;margin-bottom:8px}
+  .step p{color:var(--ink-2);font-size:15.5px;max-width:34ch}
+  @media(max-width:760px){.steps{grid-template-columns:1fr;gap:var(--sp-6)}}
+
+  /* features bento */
+  .bento{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-top:var(--sp-16)}
+  .cell{border:1px solid var(--line);border-radius:16px;padding:26px;background:var(--bg-2);grid-column:span 2;transition:transform .16s,border-color .16s}
+  .cell:hover{transform:translateY(-3px);border-color:var(--ink)}
+  .cell.wide{grid-column:span 3}.cell.tall{grid-row:span 2}
+  .cell h4{font-family:var(--disp);font-weight:500;font-size:21px;margin-bottom:8px}
+  .cell p{color:var(--ink-2);font-size:15px;max-width:40ch}
+  .cell .tagn{font-family:var(--disp);font-weight:900;font-size:40px;line-height:1;display:block;margin-bottom:12px}
+  @media(max-width:880px){.bento{grid-template-columns:1fr 1fr}.cell,.cell.wide{grid-column:span 1}.cell.tall{grid-row:auto}}
+  @media(max-width:560px){.bento{grid-template-columns:1fr}}
+
+  /* final cta */
+  .final{border:1px solid var(--line);border-radius:24px;padding:var(--sp-20) var(--sp-12);text-align:center;background:var(--bg-2)}
+  .final .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:var(--sp-8)}
+</style>
+</head>
+<body>
+
+<svg style="display:none">
+  <symbol id="mask" viewBox="0 0 1024 1024">
+    <rect width="1024" height="1024" rx="232" fill="#0c0b0a"/>
+    <path d="M512,162C650,164 732,252 742,402C750,524 728,656 650,768C596,846 556,876 512,876C468,876 428,846 374,768C296,656 274,524 282,402C292,252 374,164 512,162Z" fill="#f5f1e9"/>
+    <g fill="#0c0b0a"><path d="M366,452C392,424 462,424 488,452C462,482 392,482 366,452Z"/><path d="M536,452C562,424 632,424 658,452C632,482 562,482 536,452Z"/></g>
+    <ellipse cx="489" cy="616" rx="9" ry="13" fill="#9a948a"/><ellipse cx="535" cy="616" rx="9" ry="13" fill="#9a948a"/>
+    <path d="M452,720C488,727 536,727 572,720" fill="none" stroke="#7c766c" stroke-width="9" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="maskw" viewBox="0 0 1024 1024">
+    <path d="M512,162C650,164 732,252 742,402C750,524 728,656 650,768C596,846 556,876 512,876C468,876 428,846 374,768C296,656 274,524 282,402C292,252 374,164 512,162Z" fill="#f5f1e9"/>
+    <g fill="#0c0b0a"><path d="M366,452C392,424 462,424 488,452C462,482 392,482 366,452Z"/><path d="M536,452C562,424 632,424 658,452C632,482 562,482 536,452Z"/></g>
+  </symbol>
+</svg>
+
+<header><div class="shell nav">
+  <a class="logo" href="./index.html"><svg class="g"><use href="#mask"/></svg><span class="n">MEETAMASK</span></a>
+  <nav class="nav-mid"><a href="./index.html#how">How it works</a><a href="./index.html#features">Features</a><a href="./gallery.html">Masks</a></nav>
+  <div class="nav-r"><a class="btn sm" href="./gallery.html">See all masks</a><button class="btn fill sm" id="dlBtn">Download</button></div>
+</div></header>
+
+<main>
+<!-- HERO -->
+<section class="hero"><div class="shell grid">
+  <div>
+    <span class="kicker rv">Virtual camera for macOS</span>
+    <h1 class="rv">Wear any mask<br/>on the <em>call</em>.</h1>
+    <p class="lead rv">MEETAMASK is a virtual camera with live, interactive AR masks. Pick one and it streams straight into Zoom, Meet or Teams — reacting to your face and hands in real time.</p>
+    <div class="cta rv">
+      <button class="btn fill lg" id="dlBtn2">Download app</button>
+      <a class="btn lg" href="./gallery.html">See all masks</a>
+    </div>
+  </div>
+  <div class="callgrid rv">
+    <div class="tile"><div class="av"></div><span class="nm">Maya R.</span></div>
+    <div class="tile you"><span class="rec"><i></i>You</span><svg><use href="#maskw"/></svg><span class="nm">You · MEETAMASK</span></div>
+    <div class="tile"><div class="av"></div><span class="nm">Devin K.</span></div>
+    <div class="tile"><div class="av"></div><span class="nm">Priya N.</span></div>
+  </div>
+</div></section>
+
+<!-- LOGO STRIP -->
+<div class="logos"><div class="shell row">
+  <div class="lab"><span class="kicker">Use it in any app that accepts a virtual camera</span></div>
+  <span class="wm">Zoom</span><span class="wm">Google&nbsp;Meet</span><span class="wm">Microsoft&nbsp;Teams</span><span class="wm">Discord</span><span class="wm">OBS</span><span class="wm">Slack</span>
+</div></div>
+
+<!-- DEMO video removed for MVP — add back when the owner provides a real screencast -->
+
+
+<!-- HOW IT WORKS -->
+<section class="blk" id="how" style="padding-top:0"><div class="shell">
+  <div class="rv"><span class="kicker">How it works</span><h2 style="margin-top:12px">Three steps, then you’re masked</h2></div>
+  <div class="steps">
+    <div class="step rv"><div class="no">1</div><h3>Download</h3><p>A 452&nbsp;KB app for macOS. The render engine streams in once, on first launch.</p></div>
+    <div class="step rv"><div class="no">2</div><h3>Pick a mask</h3><p>Eye lasers, hand portals, fire, gravity, filters — masks that react to your face, hands, or the camera.</p></div>
+    <div class="step rv"><div class="no">3</div><h3>Select the camera</h3><p>Choose <em>MEETAMASK&nbsp;Camera</em> in Zoom or Meet, and you’re wearing the mask on the call.</p></div>
+  </div>
+</div></section>
+
+<!-- FEATURES BENTO -->
+<section class="blk" id="features" style="padding-top:0"><div class="shell">
+  <div class="rv"><span class="kicker">Why it’s different</span><h2 style="margin-top:12px">Built to stay on, stay smooth</h2></div>
+  <div class="bento">
+    <div class="cell wide tall rv"><span class="tagn">⌘H</span><h4>Renders off-screen</h4><p>The mask renders in a separate engine, off-screen — it isn’t tied to the app window being in front.</p></div>
+    <div class="cell rv"><h4>Works as a camera</h4><p>Any app that accepts a virtual camera — Zoom, Meet, Teams, Discord, OBS.</p></div>
+    <div class="cell rv"><h4>Face &amp; hands</h4><p>MediaPipe tracking — masks follow your expression and gestures.</p></div>
+    <div class="cell wide rv"><h4>452&nbsp;KB to start</h4><p>Tiny download; the GPU engine streams in once, designed for a clean 1280×720 at 30&nbsp;fps.</p></div>
+    <div class="cell wide rv"><h4>47 masks, ready to wear</h4><p>A library of face, hand, camera and filter effects — all built into the app.</p></div>
+  </div>
+</div></section>
+
+<!-- FINAL CTA -->
+<section class="blk" style="padding-top:0"><div class="shell">
+  <div class="final rv">
+    <span class="kicker">Get started</span>
+    <h2 style="margin-top:12px">Put on a mask for your next call</h2>
+    <div class="cta">
+      <button class="btn fill lg" id="dlBtn3">Download app</button>
+      <a class="btn lg" href="./gallery.html">See all masks</a>
+    </div>
+  </div>
+</div></section>
+</main>
+
+<footer><div class="shell foot">
+  <a class="logo"><svg class="g" style="width:22px;height:22px"><use href="#mask"/></svg><span class="n" style="font-size:16px">MEETAMASK</span></a>
+  <div>© 2026 — a stage for your webcam</div>
+</div></footer>
+
+<div class="toast" id="toast"></div>
+<script src="./main.js"></script>
+</body>
+</html>

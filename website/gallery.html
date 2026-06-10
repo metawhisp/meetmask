@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MEETAMASK — all masks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+<style>
+  .top{padding:var(--sp-16) 0 var(--sp-8)}
+  .top .row{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
+  .top h1{font-size:clamp(38px,5.4vw,68px);margin-top:6px}
+  .top .lead{margin-top:14px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:var(--sp-8);padding-bottom:var(--sp-6);border-bottom:1px solid var(--line-soft)}
+  .tab{height:36px;padding:0 15px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink-2);
+    font-family:var(--body);font-size:14px;font-weight:500;cursor:pointer;transition:.14s}
+  .tab:hover{border-color:var(--ink)}
+  .tab.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .tab .cnt{opacity:.55;font-variant-numeric:tabular-nums;margin-left:1px}
+  .tab.on .cnt{opacity:.8}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin:var(--sp-8) 0 var(--sp-28)}
+  .mask{position:relative;aspect-ratio:5/6;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#0c0b0a;
+    transition:border-color .18s}
+  .mask:hover{border-color:color-mix(in oklch,var(--ink) 32%,transparent)}
+  .mask .thumb{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s cubic-bezier(.2,.7,.3,1)}
+  .mask:hover .thumb{transform:scale(1.05)}
+  .mask .scrim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to top,rgba(0,0,0,.86) 0%,rgba(0,0,0,.34) 40%,rgba(0,0,0,0) 66%)}
+  .mask .no{position:absolute;left:13px;top:11px;font-family:var(--disp);font-size:12px;letter-spacing:.05em;color:rgba(255,255,255,.62);text-shadow:0 1px 5px rgba(0,0,0,.55)}
+  .mask .meta{position:absolute;left:14px;right:14px;bottom:12px;color:#fff}
+  .mask .meta .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .mask h4{font-family:var(--disp);font-weight:600;font-size:17px;letter-spacing:-.01em;line-height:1.12}
+  .mask .sub{font-family:var(--body);font-size:11px;color:rgba(255,255,255,.66);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+  .mask .tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#f1efe9;border:1px solid rgba(255,255,255,.32);border-radius:999px;padding:3px 8px;white-space:nowrap}
+  .mask .tag.rev{color:#ffd49a;border-color:rgba(255,170,80,.5)}
+  .mask .try{position:absolute;right:12px;top:11px;opacity:0;transform:translateY(-4px);transition:.16s;font-size:12px;font-weight:600;color:#0c0b0a;background:rgba(255,255,255,.94);padding:5px 10px;border-radius:999px}
+  .mask:hover .try{opacity:1;transform:none}
+  .mask.pending{cursor:default}
+  .mask.pending .ph{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(120% 100% at 50% 35%,#1b1813,#0c0b0a)}
+  .mask.pending .ph svg{width:48%;height:48%;opacity:.45}
+  .mask.add{border-style:dashed;background:var(--bg-2);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;color:var(--ink-2)}
+  .mask.add:hover{color:var(--ink);border-color:var(--ink);box-shadow:none;transform:translateY(-5px)}
+  .mask.add .plus{font-family:var(--disp);font-size:42px;line-height:.8}
+  .empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:var(--sp-20) 0}
+</style>
+</head>
+<body>
+
+<svg style="display:none"><symbol id="mask" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="232" fill="#0c0b0a"/>
+  <path d="M512,162C650,164 732,252 742,402C750,524 728,656 650,768C596,846 556,876 512,876C468,876 428,846 374,768C296,656 274,524 282,402C292,252 374,164 512,162Z" fill="#f5f1e9"/>
+  <g fill="#0c0b0a"><path d="M366,452C392,424 462,424 488,452C462,482 392,482 366,452Z"/><path d="M536,452C562,424 632,424 658,452C632,482 562,482 536,452Z"/></g>
+  <ellipse cx="489" cy="616" rx="9" ry="13" fill="#9a948a"/><ellipse cx="535" cy="616" rx="9" ry="13" fill="#9a948a"/>
+  <path d="M452,720C488,727 536,727 572,720" fill="none" stroke="#7c766c" stroke-width="9" stroke-linecap="round"/>
+</symbol></svg>
+
+<header><div class="shell nav">
+  <a class="logo" href="./index.html"><svg class="g"><use href="#mask"/></svg><span class="n">MEETAMASK</span></a>
+  <nav class="nav-mid"><a href="./index.html#how">How it works</a><a href="./index.html#features">Features</a><a href="./gallery.html">Masks</a></nav>
+  <div class="nav-r"><a class="btn sm" href="./gallery.html">See all masks</a><button class="btn fill sm" id="dlBtn">Download</button></div>
+</div></header>
+
+<main>
+<section class="top"><div class="shell">
+  <div class="row">
+    <div>
+      <span class="kicker">The collection</span>
+      <h1>All masks</h1>
+      <p class="lead">Every mask below ships in the app — all 47 of them. Download MEETAMASK to wear them on any call.</p>
+    </div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div class="grid" id="grid"></div>
+</div></section>
+</main>
+
+<footer><div class="shell foot">
+  <a class="logo" href="./index.html"><svg class="g" style="width:22px;height:22px"><use href="#mask"/></svg><span class="n" style="font-size:16px">MEETAMASK</span></a>
+  <div>© 2026 — a stage for your webcam</div>
+</div></footer>
+
+<!-- auth + upload modals removed for MVP — deferred to Supabase (stub saved in _deferred/auth-upload-modals.html.txt) -->
+
+<div class="toast" id="toast"></div>
+<script src="./gallery.js"></script>
+</body>
+</html>
