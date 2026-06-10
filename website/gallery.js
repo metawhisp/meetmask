@@ -49,7 +49,7 @@ function renderGrid() {
     : `<div class="empty">No masks here yet.</div>`;
 }
 
-$('#dlBtn').onclick = () => toast('Download link coming soon — the notarized build is ready');
+$('#dlBtn').onclick = () => { window.location.href = 'https://dl.meetamask.com/app'; };
 
 fetch('./site-catalog.json')
   .then((r) => r.json())
