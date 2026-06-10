@@ -36,9 +36,10 @@ final class EngineInstaller: ObservableObject {
     /// (a local http server) overrides it so the whole flow is testable without a CDN.
     nonisolated static var sourceURL: URL? {
         if let s = ProcessInfo.processInfo.environment["MEETAMASK_ENGINE_URL"], let u = URL(string: s) { return u }
-        // Notarized + stapled engine published as a GitHub Release asset on metawhisp/meetmask.
-        // `latest` auto-follows the newest release, so a new engine ships by cutting a new release.
-        return URL(string: "https://github.com/metawhisp/meetmask/releases/latest/download/MEETAMASKEngine.zip")
+        // Branded download endpoint we control (Cloudflare Worker on meetamask.com) — today it
+        // 302-redirects to the notarized engine zip on the GitHub Release (`latest` asset), and
+        // lets us move storage later without touching shipped apps. URLSession follows redirects.
+        return URL(string: "https://dl.meetamask.com/engine")
     }
 
     // MARK: install
