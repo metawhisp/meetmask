@@ -270,7 +270,8 @@ struct StageView: View {
                 ScrollView {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
                         ForEach(filtered) { card($0) }
-                        plusCard
+                        // plusCard returns as the entry to Customize (preset maker) — the site
+                        // has no upload today, so linking there was a dead end.
                     }
                     .padding(.bottom, 6)
                 }
@@ -289,7 +290,7 @@ struct StageView: View {
                 Brand.tint(for: m.tags).opacity(0.18).background(Brand.card)
             }
         }
-        .aspectRatio(16.0/10.0, contentMode: .fit)
+        .aspectRatio(1, contentMode: .fit)   // square: native ratio of the 320×320 previews
         .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(alignment: .bottomLeading) {
@@ -302,10 +303,9 @@ struct StageView: View {
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(isSel ? Brand.ink : Brand.hair, lineWidth: isSel ? 2 : 1))
         .overlay(alignment: .topTrailing) { favButton(m, size: 13).padding(6) }
         .contentShape(Rectangle())
-        .onTapGesture {
-            selectedID = m.id
-            if engine.isRunning, !paused { engine.start(maskURL: m.indexURL) }
-        }
+        // Tap only updates selection — .onChange(of: selectedID) performs the engine swap.
+        // (Starting here too made every click relaunch the engine twice.)
+        .onTapGesture { selectedID = m.id }
     }
 
     // The last cell: take the user to the site to get / upload a new mask.
@@ -398,6 +398,6 @@ struct StageView: View {
     }
 
     private static func fpsLabel(_ e: EngineFrameReceiver) -> String {
-        e.isRunning ? "30 fps" : "Idle"
+        e.isRunning ? "Live" : "Idle"   // fps shown only once actually measured
     }
 }

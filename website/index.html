@@ -75,8 +75,8 @@ h1 i{font-style:italic;font-weight:400}
 .gridwrap{margin:14px;border:1px solid var(--line);border-radius:9px;overflow:hidden}
 .grid{position:relative;background:#14130f;overflow:hidden;font-size:0;line-height:0}
 .base{display:block;width:100%;height:auto;filter:grayscale(1) contrast(1.02) brightness(.99)}
-.cell{position:absolute;width:33.34%;height:50%;overflow:hidden;opacity:0}
-.cell>img{position:absolute;width:300%;height:200%;max-width:none;display:block}
+.grid .cell{position:absolute;width:33.34%;height:50%;overflow:hidden;opacity:0;border:none;border-radius:0;padding:0;background:none}
+.grid .cell>img{position:absolute;width:300%;height:200%;max-width:none;display:block}
 .c0{left:0;top:0}.c0>img{left:0;top:0}
 .c1{left:33.333%;top:0}.c1>img{left:-100%;top:0}
 .c2{left:66.666%;top:0}.c2>img{left:-200%;top:0}
@@ -85,7 +85,7 @@ h1 i{font-style:italic;font-weight:400}
 .c5{left:66.666%;top:50%}.c5>img{left:-200%;top:-100%}
 .boom{position:absolute;left:50%;top:75%;width:30%;aspect-ratio:1;transform:translate(-50%,-50%) scale(0);border-radius:50%;border:3px solid #ffce3a;opacity:0;pointer-events:none;z-index:3}
 .boom::after{content:"";position:absolute;inset:22%;border-radius:50%;border:2px solid #ff7a36;opacity:.85}
-.cap{display:flex;align-items:center;gap:8px;padding:0 16px 14px;color:var(--gray)}
+.cam .cap{display:flex;align-items:center;gap:8px;padding:0 16px 14px;color:var(--gray)}
 .cap .mono{font-size:10px;letter-spacing:.12em}
 @keyframes light{0%{opacity:0}100%{opacity:1}}
 @keyframes boom{0%{opacity:0;transform:translate(-50%,-50%) scale(.1)}20%{opacity:.95}55%{opacity:.45}100%{opacity:0;transform:translate(-50%,-50%) scale(2.3)}}
@@ -146,7 +146,7 @@ footer{border-top:1px solid var(--line-2);padding:46px 0}
 .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);opacity:0;z-index:99;pointer-events:none;background:var(--ink);color:var(--bg);padding:12px 17px;border-radius:9px;font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.06em;transition:.22s cubic-bezier(.2,.8,.3,1)}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
-@media(prefers-reduced-motion:reduce){.cell{opacity:1!important;animation:none!important}.base,.boom{display:none}.reveal{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.grid .cell{opacity:1!important;animation:none!important}.base,.boom{display:none}.reveal{opacity:1;transform:none}}
 </style>
 </head>
 <body>
