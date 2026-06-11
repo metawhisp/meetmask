@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // MEETAMASK — "The Stage". One dark screen: the user's live masked feed on the left,
 // the mask library on the right. Brand language matches meetamask.com (Times New Roman
@@ -56,7 +57,6 @@ struct StageView: View {
     @State private var search = ""
     @State private var activeTag = "All"
     @State private var paused = false
-    @State private var showSetup = false
     @AppStorage("favoriteMaskIDs") private var favCSV = ""
 
     @StateObject private var engine = EngineFrameReceiver()
@@ -107,42 +107,26 @@ struct StageView: View {
                 engine.start(maskURL: m.indexURL)
             }
         }
-        .sheet(isPresented: $showSetup) { SetupSheet(ext: ext, installer: installer).frame(width: 460) }
     }
 
     // MARK: Header
 
     private var header: some View {
-        HStack(spacing: 12) {
+        HStack {
             Text("MEETAMASK").font(Brand.disp(19)).tracking(1.5).foregroundStyle(Brand.ink)
             Spacer()
-            statusCapsule
-            Button { showSetup = true } label: {
-                Image(systemName: "gearshape").font(.system(size: 14)).foregroundStyle(Brand.muted)
-            }.buttonStyle(.plain)
+            Text("Virtual camera").font(Brand.mono(9.5)).tracking(1).textCase(.uppercase).foregroundStyle(Brand.muted)
         }
         .padding(.leading, 80).padding(.trailing, 18)
         .padding(.top, 15).padding(.bottom, 11)
         .overlay(Rectangle().fill(Brand.hair).frame(height: 1), alignment: .bottom)
     }
 
-    private var statusCapsule: some View {
-        let (dot, label): (Color, String) = {
-            switch status {
-            case .live:      return (Brand.live, "Engine live")
-            case .switching: return (Brand.warn, "Switching…")
-            case .paused:    return (Brand.muted, "Paused")
-            }
-        }()
-        return HStack(spacing: 7) {
-            Circle().fill(dot).frame(width: 7, height: 7)
-            Text(label).font(Brand.mono(10.5)).tracking(0.6).textCase(.uppercase).foregroundStyle(Brand.ink2)
-            if status != .paused {
-                Text("→ MEETAMASK Camera").font(Brand.mono(10.5)).tracking(0.6).textCase(.uppercase).foregroundStyle(Brand.muted)
-            }
-        }
-        .padding(.horizontal, 12).padding(.vertical, 6)
-        .overlay(Capsule().stroke(Brand.hair, lineWidth: 1))
+    private var statusDot: Color {
+        switch status { case .live: return Brand.live; case .switching: return Brand.warn; case .paused: return Brand.muted }
+    }
+    private var statusLabel: String {
+        switch status { case .live: return "Engine live"; case .switching: return "Switching…"; case .paused: return "Paused" }
     }
 
     // MARK: Left rail (the ON AIR panel)
@@ -172,17 +156,22 @@ struct StageView: View {
             }
             .buttonStyle(.plain).padding(.top, 12)
 
+            HStack(spacing: 7) {
+                Circle().fill(statusDot).frame(width: 6, height: 6)
+                Text(statusLabel).font(Brand.mono(10)).tracking(0.5).textCase(.uppercase).foregroundStyle(Brand.ink2)
+            }
+            .padding(.top, 11)
             if status == .live {
-                HStack(spacing: 6) {
-                    Image(systemName: "arrow.right").font(.system(size: 10))
-                    Text("Choose MEETAMASK Camera in Meet")
-                }
-                .font(Brand.mono(10)).foregroundStyle(Brand.muted).padding(.top, 9)
+                Text("Choose “MEETAMASK Camera” in Meet or Zoom")
+                    .font(Brand.mono(9.5)).foregroundStyle(Brand.muted)
+                    .fixedSize(horizontal: false, vertical: true).padding(.top, 5)
             }
 
-            Spacer(minLength: 10)
+            Spacer(minLength: 14)
+            setupBlock
             Text("\(Self.fpsLabel(engine)) · 1280×720")
                 .font(Brand.mono(9.5)).tracking(0.5).textCase(.uppercase).foregroundStyle(Brand.muted)
+                .padding(.top, 10)
         }
         .padding(11)
         .background(Brand.panel)
@@ -228,6 +217,32 @@ struct StageView: View {
         .clipShape(RoundedRectangle(cornerRadius: 9))
     }
 
+    // Camera-extension setup — lives in the rail's free space (no popup).
+    private var setupBlock: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Rectangle().fill(Brand.hair).frame(height: 1)
+            Text("Camera extension").font(Brand.mono(9.5)).tracking(1).textCase(.uppercase).foregroundStyle(Brand.muted)
+            Group {
+                if ext.needsApproval {
+                    Text("Approve in System Settings → Camera Extensions").foregroundStyle(Brand.warn)
+                } else if let last = lastLog {
+                    Text(last).foregroundStyle(Brand.ink2).lineLimit(2)
+                } else {
+                    Text("Activate to register “MEETAMASK Camera”").foregroundStyle(Brand.ink2)
+                }
+            }
+            .font(Brand.mono(9.5)).fixedSize(horizontal: false, vertical: true)
+            Button { ext.activate() } label: {
+                Text(ext.isBusy ? "Activating…" : "Activate")
+                    .font(Brand.mono(10.5, .semibold)).textCase(.uppercase).tracking(0.5)
+                    .padding(.horizontal, 14).padding(.vertical, 6)
+                    .overlay(Capsule().stroke(Brand.hair, lineWidth: 1)).foregroundStyle(Brand.ink)
+            }.buttonStyle(.plain).disabled(ext.isBusy)
+        }
+        .padding(.bottom, 8)
+    }
+    private var lastLog: String? { ext.statusLog.split(separator: "\n").map(String.init).last }
+
     // MARK: Right library
 
     private var library: some View {
@@ -255,6 +270,7 @@ struct StageView: View {
                 ScrollView {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
                         ForEach(filtered) { card($0) }
+                        plusCard
                     }
                     .padding(.bottom, 6)
                 }
@@ -290,6 +306,22 @@ struct StageView: View {
             selectedID = m.id
             if engine.isRunning, !paused { engine.start(maskURL: m.indexURL) }
         }
+    }
+
+    // The last cell: take the user to the site to get / upload a new mask.
+    private var plusCard: some View {
+        Button { NSWorkspace.shared.open(URL(string: "https://meetamask.com/gallery")!) } label: {
+            ZStack {
+                Brand.card
+                VStack(spacing: 6) {
+                    Image(systemName: "plus").font(.system(size: 22, weight: .light)).foregroundStyle(Brand.ink2)
+                    Text("New mask").font(Brand.mono(9.5)).tracking(0.6).textCase(.uppercase).foregroundStyle(Brand.muted)
+                }
+            }
+            .aspectRatio(16.0/10.0, contentMode: .fit).frame(maxWidth: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Brand.hair, style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
+        }.buttonStyle(.plain)
     }
 
     @ViewBuilder private var airBadge: some View {
@@ -367,55 +399,5 @@ struct StageView: View {
 
     private static func fpsLabel(_ e: EngineFrameReceiver) -> String {
         e.isRunning ? "30 fps" : "Idle"
-    }
-}
-
-// MARK: - Setup sheet (extension activation + engine state)
-
-private struct SetupSheet: View {
-    @ObservedObject var ext: ExtensionManager
-    @ObservedObject var installer: EngineInstaller
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("SETUP").font(Brand.mono(12, .semibold)).tracking(1).foregroundStyle(Brand.muted)
-                Spacer()
-                Button { dismiss() } label: { Image(systemName: "xmark").foregroundStyle(Brand.muted) }.buttonStyle(.plain)
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("MEETAMASK Camera").font(Brand.disp(20)).textCase(.uppercase).foregroundStyle(Brand.ink)
-                Text("Activate the camera extension, then approve it in System Settings ▸ General ▸ Login Items & Extensions ▸ Camera Extensions.")
-                    .font(Brand.mono(11)).foregroundStyle(Brand.ink2).fixedSize(horizontal: false, vertical: true)
-            }
-
-            HStack(spacing: 9) {
-                Button { ext.activate() } label: {
-                    Text("Activate").font(Brand.mono(12, .semibold)).textCase(.uppercase)
-                        .padding(.horizontal, 16).padding(.vertical, 8)
-                        .background(Brand.ink).foregroundStyle(Brand.stage).clipShape(Capsule())
-                }.buttonStyle(.plain).disabled(ext.isBusy)
-                Button { ext.deactivate() } label: {
-                    Text("Deactivate").font(Brand.mono(12)).textCase(.uppercase)
-                        .padding(.horizontal, 16).padding(.vertical, 8)
-                        .overlay(Capsule().stroke(Brand.hair, lineWidth: 1)).foregroundStyle(Brand.ink2)
-                }.buttonStyle(.plain).disabled(ext.isBusy)
-            }
-
-            if ext.needsApproval {
-                Text("Approve MEETAMASK in System Settings → Camera Extensions.")
-                    .font(Brand.mono(10.5)).foregroundStyle(Brand.warn)
-            }
-            if !ext.statusLog.isEmpty {
-                ScrollView {
-                    Text(ext.statusLog).font(Brand.mono(10)).foregroundStyle(Brand.muted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }.frame(height: 90)
-            }
-        }
-        .padding(22)
-        .background(Brand.stage)
     }
 }
