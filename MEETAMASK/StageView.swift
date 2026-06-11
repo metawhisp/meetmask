@@ -65,7 +65,7 @@ struct StageView: View {
 
     private var selected: Mask? { masks.first { $0.id == selectedID } ?? masks.first }
     private var favorites: Set<String> { Set(favCSV.split(separator: ",").map(String.init)) }
-    private var tags: [String] { ["All"] + MaskLibrary.allTags(masks) }
+    private var tags: [String] { ["All", "Favorites"] + MaskLibrary.allTags(masks) }
 
     private var status: AirStatus {
         if paused || !engine.isRunning { return .paused }
@@ -74,8 +74,10 @@ struct StageView: View {
 
     private var filtered: [Mask] {
         masks.filter { m in
-            (activeTag == "All" || m.tags.contains(activeTag)) &&
-            (search.isEmpty || m.name.localizedCaseInsensitiveContains(search))
+            let tagOK = activeTag == "All"
+                || (activeTag == "Favorites" && favorites.contains(m.id))
+                || m.tags.contains(activeTag)
+            return tagOK && (search.isEmpty || m.name.localizedCaseInsensitiveContains(search))
         }
     }
 
@@ -306,22 +308,6 @@ struct StageView: View {
         // Tap only updates selection — .onChange(of: selectedID) performs the engine swap.
         // (Starting here too made every click relaunch the engine twice.)
         .onTapGesture { selectedID = m.id }
-    }
-
-    // The last cell: take the user to the site to get / upload a new mask.
-    private var plusCard: some View {
-        Button { NSWorkspace.shared.open(URL(string: "https://meetamask.com/gallery")!) } label: {
-            ZStack {
-                Brand.card
-                VStack(spacing: 6) {
-                    Image(systemName: "plus").font(.system(size: 22, weight: .light)).foregroundStyle(Brand.ink2)
-                    Text("New mask").font(Brand.mono(9.5)).tracking(0.6).textCase(.uppercase).foregroundStyle(Brand.muted)
-                }
-            }
-            .aspectRatio(16.0/10.0, contentMode: .fit).frame(maxWidth: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Brand.hair, style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
-        }.buttonStyle(.plain)
     }
 
     @ViewBuilder private var airBadge: some View {

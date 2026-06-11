@@ -116,14 +116,14 @@ h1 i{font-style:italic;font-weight:400}
 @media(max-width:760px){.steps{grid-template-columns:1fr;gap:26px}}
 
 .bento{display:grid;grid-template-columns:repeat(6,1fr);gap:13px;margin-top:46px}
-.cell{border:1px solid var(--line-strong);border-radius:12px;padding:24px;background:#fff;grid-column:span 2;transition:border-color .18s,transform .18s}
-.cell:hover{border-color:var(--ink);transform:translateY(-2px)}
-.cell.wide{grid-column:span 3}.cell.tall{grid-row:span 2}
-.cell .ck{font-family:var(--mono);text-transform:uppercase;letter-spacing:.12em;font-size:10.5px;color:var(--gray)}
-.cell h4{font-family:var(--serif);font-weight:700;font-size:22px;margin:11px 0 8px;text-transform:uppercase;letter-spacing:-.01em}
-.cell p{font-size:14.5px;color:var(--ink-2);max-width:42ch}
-.cell .big{font-family:var(--serif);font-weight:700;font-size:52px;line-height:.95;color:#121110;display:block}
-@media(max-width:880px){.bento{grid-template-columns:1fr 1fr}.cell,.cell.wide{grid-column:span 1}.cell.tall{grid-row:auto}}
+.bento .cell{border:1px solid var(--line-strong);border-radius:12px;padding:24px;background:#fff;grid-column:span 2;transition:border-color .18s,transform .18s}
+.bento .cell:hover{border-color:var(--ink);transform:translateY(-2px)}
+.bento .cell.wide{grid-column:span 3}.bento .cell.tall{grid-row:span 2}
+.bento .cell .ck{font-family:var(--mono);text-transform:uppercase;letter-spacing:.12em;font-size:10.5px;color:var(--gray)}
+.bento .cell h4{font-family:var(--serif);font-weight:700;font-size:22px;margin:11px 0 8px;text-transform:uppercase;letter-spacing:-.01em}
+.bento .cell p{font-size:14.5px;color:var(--ink-2);max-width:42ch}
+.bento .cell .big{font-family:var(--serif);font-weight:700;font-size:52px;line-height:.95;color:#121110;display:block}
+@media(max-width:880px){.bento{grid-template-columns:1fr 1fr}.bento .cell,.bento .cell.wide{grid-column:span 1}.bento .cell.tall{grid-row:auto}}
 @media(max-width:560px){.bento{grid-template-columns:1fr}}
 
 .mteaser{display:flex;gap:12px;margin-top:40px;flex-wrap:wrap}
