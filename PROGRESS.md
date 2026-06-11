@@ -81,6 +81,13 @@ System Settings → **General → Login Items & Extensions** → секция **
 - **Утечка/дубль таймера (codex P2):** `startStreamingSource`/`startStreamingSink` перезаписывают `_sourceTimer`/`_sinkTimer` без отмены старого; `stop` гасит только последний. Фикс: создавать таймер только на переходе 0→1, старый cancel.
 - **Несинхронные счётчики (F8):** `_streamingSourceCounter`/`_streamingSinkCounter` читаются/пишутся из разных очередей без lock.
 
+## Хост теперь РЕАЛЬНО ЗАПУСКАЕТСЯ (2026-06-11) — найден и закрыт скрытый блокер
+- **Баг (мой промах):** билд от `dist/sign-host.sh` проходил Gatekeeper (`spctl accepted`), но macOS/AMFI убивал его на старте (SIGKILL, RBS 163). Причина — у app есть системное расширение, чьи restricted-entitlements требуют **Developer ID provisioning profile**, которого ручная подпись не вшивала. «Подпись принята» ≠ «запускается». Раньше я этого не проверял (тестировал только spctl), отсюда ложное «раздача живая».
+- **Фикс:** founder вошёл в Apple ID в Xcode → `xcodebuild -exportArchive` (method=developer-id, `-allowProvisioningUpdates`) сам выпустил профиль `Mac Team Direct Provisioning Profile` и вшил его → нотаризация (id 445fb64d) → staple → залит в релиз v0.2 (clobber).
+- **Проверено сквозняком:** скачал с `dl.meetamask.com/app` как юзер → распаковал → **бинарь запускается и живёт** (AMFI не убивает). Раздача наконец настоящая.
+- **Правило на будущее:** хост для раздачи собирать ТОЛЬКО через exportArchive (нужен Xcode-логин), НЕ через `sign-host.sh` (он стрипнет профиль). Детали — в памяти `project_meetomask_repo`.
+- Не проверено (нет чистой машины): активация Developer-ID-расширения на маке, который его раньше не видел.
+
 ## Раздача ПОЛНОСТЬЮ — СДЕЛАНО (2026-06-10, вечер)
 - **Домен:** Cloudflare Worker `meetamask-dl` на `dl.meetamask.com` (зона meetamask.com; токены в Keychain: `cloudflare_meetamask_workers`, `cloudflare_meetamask_dns`; DNS AAAA `dl`→100:: proxied + route `dl.meetamask.com/*`). Редиректит на GitHub Release latest:
   - `https://dl.meetamask.com/app` → MEETAMASK.zip (хост, 844K)
