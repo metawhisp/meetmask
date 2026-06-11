@@ -6,6 +6,15 @@ struct Mask: Identifiable, Hashable {
     let name: String      // display name
     let indexURL: URL     // file URL to index.html
     let isBuiltIn: Bool
+    var tags: [String] = []   // free-form, author-set (bundled: Masks/tags.json)
+    var blurb: String = ""    // one-line description
+}
+
+/// Tag catalog entry decoded from the bundled `Masks/tags.json`.
+private struct MaskMeta: Decodable {
+    let id: String
+    let tags: [String]
+    let blurb: String
 }
 
 /// Discovers masks and applies the load policy. Built-in masks are bundled in the app
@@ -27,10 +36,27 @@ enum MaskLibrary {
     }
 
     static func all() -> [Mask] {
-        let builtin = Bundle.main.resourceURL
-            .map { scan($0.appendingPathComponent("Masks", isDirectory: true), isBuiltIn: true) } ?? []
-        let user = userMasksDir.map { scan($0, isBuiltIn: false) } ?? []
+        let masksRoot = Bundle.main.resourceURL?.appendingPathComponent("Masks", isDirectory: true)
+        let meta = masksRoot.map(loadMeta) ?? [:]
+        let builtin = masksRoot.map { scan($0, isBuiltIn: true, meta: meta) } ?? []
+        let user = userMasksDir.map { scan($0, isBuiltIn: false, meta: meta) } ?? []
         return approvedMasks(builtin: builtin, user: user)
+    }
+
+    /// Every distinct tag across the given masks, in descending frequency then alphabetical —
+    /// drives the gallery's tag filter row.
+    static func allTags(_ masks: [Mask]) -> [String] {
+        var freq: [String: Int] = [:]
+        for m in masks { for t in m.tags { freq[t, default: 0] += 1 } }
+        return freq.keys.sorted { (freq[$0]!, $1) > (freq[$1]!, $0) }
+    }
+
+    /// Load `Masks/tags.json` → id-keyed metadata. Missing file ⇒ empty (masks still load).
+    private static func loadMeta(in root: URL) -> [String: MaskMeta] {
+        let url = root.appendingPathComponent("tags.json")
+        guard let data = try? Data(contentsOf: url),
+              let list = try? JSONDecoder().decode([MaskMeta].self, from: data) else { return [:] }
+        return Dictionary(list.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
     }
 
     /// Load policy: only app-approved built-ins are shown. User-droppable masks are
@@ -48,7 +74,7 @@ enum MaskLibrary {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
-    private static func scan(_ root: URL, isBuiltIn: Bool) -> [Mask] {
+    private static func scan(_ root: URL, isBuiltIn: Bool, meta: [String: MaskMeta]) -> [Mask] {
         let fm = FileManager.default
         guard let entries = try? fm.contentsOfDirectory(at: root,
                                                         includingPropertiesForKeys: [.isDirectoryKey],
@@ -60,7 +86,8 @@ enum MaskLibrary {
             let index = dir.appendingPathComponent("index.html")
             guard fm.fileExists(atPath: index.path) else { continue }
             let id = dir.lastPathComponent
-            masks.append(Mask(id: id, name: prettify(id), indexURL: index, isBuiltIn: isBuiltIn))
+            masks.append(Mask(id: id, name: prettify(id), indexURL: index, isBuiltIn: isBuiltIn,
+                              tags: meta[id]?.tags ?? [], blurb: meta[id]?.blurb ?? ""))
         }
         return masks
     }

@@ -17,6 +17,10 @@ final class EngineFrameReceiver: ObservableObject {
     @Published private(set) var isRunning = false
     @Published private(set) var status = "Готов"
     @Published var previewImage: NSImage?
+    // True from the moment a mask (re)launch is requested until its FIRST real frame lands.
+    // The UI uses this to show "Switching…" and to withhold the ON-AIR badge until the new
+    // mask is actually on camera (honest status — codex review).
+    @Published private(set) var switching = false
 
     private let feeder = CameraFeeder.shared
     private var process: Process?
@@ -24,6 +28,7 @@ final class EngineFrameReceiver: ObservableObject {
     private var fd: Int32 = -1
     private var lastSeq: UInt64 = 0
     private var frameCount = 0
+    private var pendingFirstFrame = false   // frameQueue-owned: true from (re)launch until first frame
     private var timer: DispatchSourceTimer?
     private var activity: NSObjectProtocol?
 
@@ -61,6 +66,7 @@ final class EngineFrameReceiver: ObservableObject {
             os_log("receiver: camera access denied/restricted — refusing start (masks would be black)", log: log, type: .error)
             return
         }
+        switching = true   // on main (start is called from the UI) — cleared when the first frame lands
         if isRunning {
             frameQueue.async { [weak self] in self?.relaunchEngine(maskURL: maskURL) }
             return
@@ -153,6 +159,7 @@ final class EngineFrameReceiver: ObservableObject {
     }
 
     private func launchEngine(maskURL: URL) {
+        pendingFirstFrame = true   // frameQueue: next committed frame clears `switching`
         guard let enginePath = Self.findEngine() else { return }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: enginePath)
@@ -180,6 +187,7 @@ final class EngineFrameReceiver: ObservableObject {
         feeder.disconnect()
         if let a = activity { ProcessInfo.processInfo.endActivity(a); activity = nil }
         isRunning = false
+        switching = false
         os_log("receiver: stopped (feeder disconnected)", log: log, type: .info)
         DispatchQueue.main.async { self.previewImage = nil }
     }
@@ -210,6 +218,10 @@ final class EngineFrameReceiver: ObservableObject {
             if base.load(fromByteOffset: 0, as: UInt64.self) != s1 { continue }
 
             lastSeq = s1
+            if pendingFirstFrame {   // first real frame of the new mask → it's actually on camera now
+                pendingFirstFrame = false
+                DispatchQueue.main.async { self.switching = false }
+            }
             if let sbuf = sbuf { feeder.enqueue(sbuf) }
             frameCount &+= 1
             if frameCount % 30 == 0 {   // ~1/s: proof the push is alive
