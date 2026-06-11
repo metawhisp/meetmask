@@ -37,6 +37,17 @@ private enum Brand {
     }
 }
 
+/// Lazily-decoded, cached mask preview images (bundled `preview.webp`).
+private enum Thumb {
+    static var cache: [String: NSImage] = [:]
+    static func image(_ m: Mask) -> NSImage? {
+        if let c = cache[m.id] { return c }
+        guard let u = m.previewURL, let img = NSImage(contentsOf: u) else { return nil }
+        cache[m.id] = img
+        return img
+    }
+}
+
 private enum AirStatus { case live, switching, paused }
 
 struct StageView: View {
@@ -188,8 +199,12 @@ struct StageView: View {
             case .failed(let msg):    centered(Text(msg).font(Brand.mono(10)).foregroundStyle(Brand.live))
             case .checking, .installed:
                 if let img = engine.previewImage {
+                    // Live self-view: mirrored (camera output stays raw).
                     Image(nsImage: img).resizable().aspectRatio(contentMode: .fill).scaleEffect(x: -1, y: 1)
-                } else if status == .paused {
+                } else if let m = selected, let poster = Thumb.image(m) {
+                    // No live frame yet (paused / starting): show the mask's preview render as a poster.
+                    Image(nsImage: poster).resizable().aspectRatio(contentMode: .fill)
+                } else {
                     centered(Text("Paused").font(Brand.mono(11)).tracking(1).textCase(.uppercase).foregroundStyle(Brand.muted))
                 }
             }
@@ -249,33 +264,32 @@ struct StageView: View {
 
     private func card(_ m: Mask) -> some View {
         let isSel = m.id == selectedID
-        return Button {
+        // NOTE: selection is an onTapGesture (NOT a Button) so the favourite star can be a
+        // real Button overlaid on top — nesting Buttons made star taps fall through to select.
+        return ZStack {
+            if let img = Thumb.image(m) {
+                Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
+            } else {
+                Brand.tint(for: m.tags).opacity(0.18).background(Brand.card)
+            }
+        }
+        .aspectRatio(16.0/10.0, contentMode: .fit)
+        .frame(maxWidth: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(alignment: .bottomLeading) {
+            Text(m.name).font(Brand.disp(13)).textCase(.uppercase).foregroundStyle(Brand.ink)
+                .lineLimit(1).padding(.horizontal, 7).padding(.vertical, 5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(LinearGradient(colors: [.clear, Brand.stage.opacity(0.9)], startPoint: .top, endPoint: .bottom))
+        }
+        .overlay(alignment: .topLeading) { if isSel { airBadge.padding(5) } }
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(isSel ? Brand.ink : Brand.hair, lineWidth: isSel ? 2 : 1))
+        .overlay(alignment: .topTrailing) { favButton(m, size: 13).padding(6) }
+        .contentShape(Rectangle())
+        .onTapGesture {
             selectedID = m.id
             if engine.isRunning, !paused { engine.start(maskURL: m.indexURL) }
-        } label: {
-            ZStack(alignment: .bottomLeading) {
-                Rectangle().fill(Brand.tint(for: m.tags).opacity(0.18))
-                    .overlay(Rectangle().fill(Brand.card))
-                    .aspectRatio(16.0/10.0, contentMode: .fit)
-                VStack(alignment: .leading, spacing: 0) {
-                    Spacer()
-                    Text(m.name).font(Brand.disp(13)).textCase(.uppercase).foregroundStyle(Brand.ink)
-                        .lineLimit(1).padding(.horizontal, 7).padding(.vertical, 5)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(LinearGradient(colors: [.clear, Brand.stage.opacity(0.85)], startPoint: .top, endPoint: .bottom))
-                }
-                // overlays
-                VStack { HStack {
-                    if isSel { airBadge }
-                    Spacer()
-                    favButton(m, size: 13)
-                }; Spacer() }.padding(5)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8)
-                .stroke(isSel ? Brand.ink : Brand.hair, lineWidth: isSel ? 2 : 1))
         }
-        .buttonStyle(.plain)
     }
 
     @ViewBuilder private var airBadge: some View {

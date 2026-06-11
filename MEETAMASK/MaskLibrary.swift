@@ -8,6 +8,7 @@ struct Mask: Identifiable, Hashable {
     let isBuiltIn: Bool
     var tags: [String] = []   // free-form, author-set (bundled: Masks/tags.json)
     var blurb: String = ""    // one-line description
+    var previewURL: URL? = nil   // bundled preview.webp, if present
 }
 
 /// Tag catalog entry decoded from the bundled `Masks/tags.json`.
@@ -86,8 +87,10 @@ enum MaskLibrary {
             let index = dir.appendingPathComponent("index.html")
             guard fm.fileExists(atPath: index.path) else { continue }
             let id = dir.lastPathComponent
+            let preview = dir.appendingPathComponent("preview.webp")
             masks.append(Mask(id: id, name: prettify(id), indexURL: index, isBuiltIn: isBuiltIn,
-                              tags: meta[id]?.tags ?? [], blurb: meta[id]?.blurb ?? ""))
+                              tags: meta[id]?.tags ?? [], blurb: meta[id]?.blurb ?? "",
+                              previewURL: fm.fileExists(atPath: preview.path) ? preview : nil))
         }
         return masks
     }
