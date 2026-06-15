@@ -42,6 +42,7 @@
 {"id":"portalpull","tags":["hands","gesture","tracking","fun"],"blurb":"Palms-together vortex portal with accretion ring"},
 {"id":"posterize","tags":["filter","color","subtle"],"blurb":"Color quantization smoothing near cursor"},
 {"id":"realitytear","tags":["glitch","motion","gesture"],"blurb":"Spread hands to rip dimensional tears"},
+{"id":"sandbox","tags":["face","hands","gesture","fun","motion"],"blurb":"Physics balls you bat around with head tilt and hands"},
 {"id":"scan","tags":["subtle","filter","motion"],"blurb":"Glowing line reveals hidden video"},
 {"id":"shards","tags":["glitch","edges","motion"],"blurb":"Voronoi shards explode from cursor"},
 {"id":"snowpile","tags":["fun","face","motion"],"blurb":"Snowflakes stick to your face, shake to clear"},

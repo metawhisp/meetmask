@@ -59,6 +59,7 @@ import portalPull    from './registry/portalPull.js';
 import stareOff      from './registry/stareOff.js';
 import poseStages    from './registry/poseStages.js';
 import flow          from './registry/flow.js';
+import sandbox       from './registry/sandbox.js';
 
 import scan         from './registry/scan.js';
 import pixelDrift   from './registry/pixelDrift.js';
@@ -68,7 +69,7 @@ import feedback     from './registry/feedback.js';
 
 const RAW = [
   // VIRAL — adding back one at a time.
-  catAttack, snowPile, realityTear, gestureSpells, portalPull, flow,
+  catAttack, snowPile, realityTear, gestureSpells, portalPull, flow, sandbox,
   faceGravity, headbang, auraScan, stareOff, poseStages, timeEcho,
   // Narrative AR (3D objects + physics + gestures).
   glasses, iceCream, mouthFire, faceMask, fingerPaint,
