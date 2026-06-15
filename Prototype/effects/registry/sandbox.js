@@ -31,6 +31,8 @@ const HAND_FLING  = 1.0;    // how much a moving collider imparts its velocity
 const MAGNET_ACC  = 5200;   // fist attraction (px/s² near the hand)
 const BLOW_ACC    = 6000;   // open-palm repulsion
 const FORCE_R     = 320;    // gesture force radius (px)
+const HOLD_K      = 18;     // stiffness pulling held balls to the hand
+const THROW_K     = 1.3;    // hand velocity → throw speed on release
 
 const PALM_IDXS = [0, 5, 9, 13, 17];
 const TIP_IDXS  = [8, 12, 16, 20];
@@ -94,6 +96,7 @@ class Sandbox extends Tracker {
     this.br = new Float32Array(BALL_COUNT);
     this.head = new Collider();
     this.palms = [new Collider(), new Collider()];
+    this.heldBy = new Int8Array(BALL_COUNT).fill(-1); // -1 free, else palm index
     this.gx = 0; this.gy = GRAVITY;       // current gravity vector
     this._dummy = new THREE.Object3D();
   }
@@ -149,8 +152,13 @@ class Sandbox extends Tracker {
     const ctx = this.ctx; if (!ctx) return;
     const W = ctx.width, H = ctx.height;
 
-    // ---- head collider + tilt-gravity from face ----
-    if (this.faceLms && this.faceLms.length > 263) {
+    // ---- gravity: a covered face flips it; otherwise head-tilt steers it ----
+    const covered = !this.faceLms && this.handsRaw.length > 0;
+    if (covered) {
+      this.head.clear();
+      this.gx += (0 - this.gx) * Math.min(1, dt * 6);
+      this.gy += (-GRAVITY - this.gy) * Math.min(1, dt * 6);   // flip UP
+    } else if (this.faceLms && this.faceLms.length > 263) {
       const f = this.faceLms;
       const [fx, fy] = this.toPx(f[10].x, f[10].y);   // forehead
       const [cx, cy] = this.toPx(f[152].x, f[152].y); // chin
@@ -190,11 +198,37 @@ class Sandbox extends Tracker {
     }
     for (let h = 0; h < 2; h++) if (!seen[h]) this.palms[h].clear();
 
+    // ---- grab / hold / throw ----
+    // Release balls whose hand opened (✋) or vanished — opening throws them.
+    for (let i = 0; i < BALL_COUNT; i++) {
+      const hb = this.heldBy[i]; if (hb < 0) continue;
+      const p = this.palms[hb];
+      if (!p.active || p.mode === 1) {
+        this.heldBy[i] = -1;
+        if (p.active) { this.bvx[i] += p.vx * THROW_K; this.bvy[i] += p.vy * THROW_K; }
+      }
+    }
+    // A fist (✊) grabs free balls within reach → they stick to that hand.
+    for (let h = 0; h < 2; h++) {
+      const p = this.palms[h];
+      if (!p.active || p.mode !== -1) continue;
+      const gr = p.r * 2.2, gr2 = gr * gr;
+      for (let i = 0; i < BALL_COUNT; i++) {
+        if (this.heldBy[i] !== -1) continue;
+        const dx = this.bx[i] - p.x, dy = this.by[i] - p.y;
+        if (dx * dx + dy * dy < gr2) this.heldBy[i] = h;
+      }
+    }
+
     this.simulate(dt, W, H);
     this.draw();
 
-    const mode = this.palms.filter((p) => p.active).map((p) => p.mode === -1 ? '✊pull' : p.mode === 1 ? '✋push' : '✋').join(' ');
-    ctx.setHud(`SANDBOX · tilt head = gravity · ${this.head.active ? 'head live' : 'show your face'} · ${mode || 'show hands'}`);
+    let held = 0; for (let i = 0; i < BALL_COUNT; i++) if (this.heldBy[i] >= 0) held++;
+    const grav = covered ? 'FACE COVERED · gravity flipped' : 'tilt head = gravity';
+    const hands = this.palms.some((p) => p.active)
+      ? `✊ grab · ✋ throw${held ? ` · holding ${held}` : ''}`
+      : 'show hands to grab';
+    ctx.setHud(`SANDBOX · ${grav} · ${hands}`);
   }
 
   simulate(dt, W, H) {
@@ -203,6 +237,16 @@ class Sandbox extends Tracker {
 
     // integrate + gesture forces + collider fling
     for (let i = 0; i < BALL_COUNT; i++) {
+      // held balls ignore gravity/forces — they spring to (and ride) the hand
+      const hb = this.heldBy[i];
+      if (hb >= 0 && this.palms[hb].active) {
+        const p = this.palms[hb];
+        bvx[i] = (p.x - bx[i]) * HOLD_K;
+        bvy[i] = (p.y - by[i]) * HOLD_K;
+        bx[i] += bvx[i] * dt; by[i] += bvy[i] * dt;
+        continue;
+      }
+
       bvx[i] += this.gx * dt;
       bvy[i] += this.gy * dt;
 
@@ -234,6 +278,7 @@ class Sandbox extends Tracker {
     for (const c of colliders) {
       if (!c.active) continue;
       for (let i = 0; i < BALL_COUNT; i++) {
+        if (this.heldBy[i] >= 0) continue;       // held balls are glued to a hand
         const dx = bx[i] - c.x, dy = by[i] - c.y;
         const min = c.r + br[i];
         const d2 = dx * dx + dy * dy;
