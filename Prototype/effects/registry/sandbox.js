@@ -157,10 +157,15 @@ class Sandbox extends Tracker {
       const hx = (fx + cx) / 2, hy = (fy + cy) / 2;
       const r = Math.hypot(fx - cx, fy - cy) * 0.46;
       this.head.set(hx, hy, Math.max(40, r), dt);
-      // roll from the eye line (33 = left-outer, 263 = right-outer)
-      const [lx, ly] = this.toPx(f[33].x, f[33].y);
-      const [rx, ry] = this.toPx(f[263].x, f[263].y);
-      const roll = Math.atan2(ry - ly, rx - lx);       // 0 when upright
+      // roll from the eye line (33 / 263 = outer eye corners). toPx is
+      // mirror-aware (flips X in selfie mode), which would flip the eye-line
+      // vector and read upright as ~180° → gravity UP. Order the two points by
+      // screen-X so an upright head is always roll≈0 (gravity straight down),
+      // mirror or not.
+      let [e1x, e1y] = this.toPx(f[33].x, f[33].y);
+      let [e2x, e2y] = this.toPx(f[263].x, f[263].y);
+      if (e1x > e2x) { const tx = e1x, ty = e1y; e1x = e2x; e1y = e2y; e2x = tx; e2y = ty; }
+      const roll = Math.atan2(e2y - e1y, e2x - e1x); // 0 upright; sign follows tilt
       const tgx = Math.sin(roll) * GRAVITY, tgy = Math.cos(roll) * GRAVITY;
       this.gx += (tgx - this.gx) * Math.min(1, dt * 6);
       this.gy += (tgy - this.gy) * Math.min(1, dt * 6);
