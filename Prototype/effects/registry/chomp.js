@@ -179,14 +179,7 @@ class Chomp extends Tracker {
     g.font = '54px serif';
     for (const it of this.items) g.fillText(it.glyph, it.x, it.y);
 
-    // mouth hitbox ring
-    if (this.mouth.active && !this.gameOver) {
-      const m = this.mouth;
-      g.lineWidth = m.open ? 7 : 3;
-      g.strokeStyle = m.open ? 'rgba(120,255,128,0.95)' : 'rgba(255,255,255,0.55)';
-      g.beginPath(); g.arc(m.x, m.y, m.r, 0, Math.PI * 2); g.stroke();
-      if (m.open) { g.fillStyle = 'rgba(120,255,128,0.12)'; g.fill(); }
-    }
+    // (no mouth marker — you can see your own mouth on camera)
 
     // score popups
     g.font = '800 34px ui-monospace, Menlo, monospace';
@@ -270,10 +263,8 @@ function preview(c) {
   const food = ['🍎', '🍌', '🍒', '🍇', '💣', '🍓'];
   const pos = [[70, 70], [150, 40], [240, 90], [110, 150], [250, 180], [60, 210]];
   for (let i = 0; i < pos.length; i++) c.fillText(food[i], pos[i][0], pos[i][1]);
-  // open mouth ring near bottom
-  c.lineWidth = 7; c.strokeStyle = 'rgba(120,255,128,0.95)';
-  c.beginPath(); c.arc(W / 2, 250, 46, 0, Math.PI * 2); c.stroke();
-  c.fillStyle = 'rgba(120,255,128,0.14)'; c.fill();
+  // open-mouth face at the bottom (you, eating)
+  c.font = '92px serif'; c.fillText('😮', W / 2, 258);
   c.fillStyle = '#fff'; c.textAlign = 'left'; c.font = '800 22px ui-monospace, monospace';
   c.fillText('🍴 12', 16, 28);
 }
