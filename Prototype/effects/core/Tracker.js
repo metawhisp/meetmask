@@ -48,10 +48,13 @@ export function landmarkToCanvasPx(lx, ly, vw, vh, cw, ch, mirror) {
  *   The canvas is transparent; the live video is the <video> element below it.
  */
 export class Tracker {
-  constructor({ kind = 'face', numFaces = 1, numHands = 2 } = {}) {
+  constructor({ kind = 'face', numFaces = 1, numHands = 2,
+    faceBlendshapes = false, faceTransform = false } = {}) {
     this.kind = kind;
     this.numFaces = numFaces;
     this.numHands = numHands;
+    this.faceBlendshapes = faceBlendshapes;
+    this.faceTransform = faceTransform;
     this.landmarker = null;
     this.lastVideoTime = -1;
     this.mirror = true;
@@ -117,7 +120,11 @@ export class Tracker {
     ctx.setHud(`${this.kind === 'face' ? 'Face' : 'Hand'} effect — loading model…`);
     try {
       if (this.kind === 'face') {
-        this.landmarker = await loadFaceLandmarker({ numFaces: this.numFaces });
+        this.landmarker = await loadFaceLandmarker({
+          numFaces: this.numFaces,
+          blendshapes: this.faceBlendshapes,
+          transform: this.faceTransform,
+        });
       } else {
         this.landmarker = await loadHandLandmarker({ numHands: this.numHands });
       }

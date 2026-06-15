@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { Tracker } from '../core/Tracker.js?v=3';
-import { loadFaceLandmarker } from '../core/mpLoader.js';
 
 // ============================================================================
 // CALL WRAPPED — counts what you DO on a call and reacts, live and escalating.
@@ -85,8 +84,8 @@ class Osc {
 
 class CallWrapped extends Tracker {
   constructor() {
-    super({ kind: 'face', numFaces: 1 });
-    this.faceLm = null;
+    // Blendshapes come from the base Tracker's face model — no second model.
+    super({ kind: 'face', numFaces: 1, faceBlendshapes: true });
     this.lastVideoTime = -1;
     this.reset();
   }
@@ -104,9 +103,6 @@ class CallWrapped extends Tracker {
   }
 
   async setup(ctx) {
-    // Our own blendshape-enabled face model (base Tracker model isn't used).
-    this.faceLm = await loadFaceLandmarker({ numFaces: 1, blendshapes: true });
-
     // HUD: a 2D canvas drawn every frame, shown on a full-screen plane so it
     // is part of the captured frame.
     this.hud = document.createElement('canvas');
@@ -126,14 +122,14 @@ class CallWrapped extends Tracker {
     if (ctx.video.currentTime !== this.lastVideoTime) {
       this.lastVideoTime = ctx.video.currentTime;
       try {
-        const r = this.faceLm.detectForVideo(ctx.video, performance.now());
+        const r = this.landmarker.detectForVideo(ctx.video, performance.now());
         const lms = r?.faceLandmarks?.[0] || null;
         const B = blendMapFrom(r?.faceBlendshapes?.[0]?.categories);
         this.tick(lms, B, dt);
         return;
       } catch (_e) { /* fall through */ }
     }
-    this.tick(this.faceLm ? this._lastLms : null, this._lastB || null, dt);
+    this.tick(this.landmarker ? this._lastLms : null, this._lastB || null, dt);
   }
 
   // Acquisition-independent core: feed landmarks + blendshape map. Testable.
