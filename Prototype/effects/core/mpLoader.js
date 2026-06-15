@@ -14,7 +14,7 @@ const POSE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_lan
 
 let _mp = null;
 let _fileset = null;
-let _faceLandmarkerP = null;
+const _faceLandmarkerByKey = new Map();
 let _handLandmarkerP = null;
 let _selfieSegmenterP = null;
 let _gestureRecognizerP = null;
@@ -27,19 +27,23 @@ async function loadVision() {
   return _mp;
 }
 
-export async function loadFaceLandmarker({ numFaces = 1 } = {}) {
-  if (_faceLandmarkerP) return _faceLandmarkerP;
-  _faceLandmarkerP = (async () => {
+// Cached per (numFaces, blendshapes, transform) so effects that need mimic
+// blendshapes / head-pose don't force that cost on the basic face effects.
+export async function loadFaceLandmarker({ numFaces = 1, blendshapes = false, transform = false } = {}) {
+  const key = `${numFaces}|${blendshapes}|${transform}`;
+  if (_faceLandmarkerByKey.has(key)) return _faceLandmarkerByKey.get(key);
+  const p = (async () => {
     const mp = await loadVision();
     return mp.FaceLandmarker.createFromOptions(_fileset, {
       baseOptions: { modelAssetPath: FACE_MODEL_URL, delegate: 'GPU' },
       runningMode: 'VIDEO',
       numFaces,
-      outputFaceBlendshapes: false,
-      outputFacialTransformationMatrixes: false,
+      outputFaceBlendshapes: blendshapes,
+      outputFacialTransformationMatrixes: transform,
     });
   })();
-  return _faceLandmarkerP;
+  _faceLandmarkerByKey.set(key, p);
+  return p;
 }
 
 export async function loadHandLandmarker({ numHands = 2 } = {}) {

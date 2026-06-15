@@ -4,6 +4,7 @@
 {"id":"aurascan","tags":["face","tracking","color","fun"],"blurb":"Scanline reveals random aura colors"},
 {"id":"bleach","tags":["filter","color","subtle","clean"],"blurb":"Desaturated film with color window"},
 {"id":"bloom","tags":["filter","color","clean","subtle"],"blurb":"Neon glow highlights with cursor flare"},
+{"id":"callwrapped","tags":["face","fun","tracking","motion"],"blurb":"Counts your call actions and roasts you with a CALL WRAPPED card"},
 {"id":"catattack","tags":["hands","gesture","tracking","fun"],"blurb":"Hand-tracked cat-swatting arcade game"},
 {"id":"caustics","tags":["color","trippy","filter","subtle"],"blurb":"Animated underwater light caustic waves"},
 {"id":"crosshatch","tags":["edges","clean","filter","minimal"],"blurb":"Pencil sketch with dynamic cross-hatching"},
