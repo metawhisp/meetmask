@@ -21,6 +21,7 @@
 {"id":"feedback","tags":["glitch","motion","trippy","fun"],"blurb":"Radial zoom trail following cursor"},
 {"id":"fingerpaint","tags":["hands","gesture","fun","tracking"],"blurb":"Draw in the air with your index finger"},
 {"id":"fisheye","tags":["filter","subtle","edges"],"blurb":"Barrel lens distortion effect"},
+{"id":"flow","tags":["hands","gesture","motion","trippy"],"blurb":"Curl-noise flow field steered by your hands"},
 {"id":"gesturespells","tags":["gesture","hands","fun","motion"],"blurb":"Six magical spells from hand gestures"},
 {"id":"glasses","tags":["face","tracking","clean"],"blurb":"Virtual AR glasses on your face"},
 {"id":"halftone","tags":["filter","edges","hands"],"blurb":"Pixel halftone with hand control"},
