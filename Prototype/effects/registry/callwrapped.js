@@ -27,6 +27,8 @@ const BLINK_ON = 0.55, BLINK_OFF = 0.30;
 const BROW_ON  = 0.55, BROW_OFF  = 0.35;
 const JAW_TALK = 0.05;            // |Δ jawOpen| EMA above this ⇒ talking
 const SHOCK_JAW = 0.5, SHOCK_BROW = 0.45, SHOCK_HOLD = 0.9; // card toggle
+const SURP_JAW = 0.45, SURP_BROW = 0.40;     // 😮 surprise (open mouth + brows)
+const SILLY_ON = 0.30, SILLY_OFF = 0.15;     // 😛 tongue out / cheek puff
 const LOOK_YAW = 0.13, LOOK_HOLD = 0.6; // |nose offset|/faceW sustained ⇒ away
 const NOD_AMP = 0.035, SHAKE_AMP = 0.045, OSC_GAP = 1.2;
 
@@ -45,10 +47,14 @@ const ACTIONS = {
     tiers: [[5,1,'nope?'],[15,2,'SKEPTIC x15'],[30,3,'HARD DISAGREE!!!']] },
   brow:     { icon: '🤨', label: 'BROWS', kind: 'count',
     tiers: [[5,1,'intrigued'],[15,2,'SUSPICIOUS x15'],[30,3,'THE EYEBROW!!!']] },
+  surprise: { icon: '😮', label: 'SHOOK', kind: 'count',
+    tiers: [[2,1,'oh!'],[8,2,'SHOOK x8'],[20,3,'CONSTANTLY SHOOK!!'],[40,4,'😱 DRAMA OVERLOAD!!! BREATHE!!!']] },
+  silly:    { icon: '😛', label: 'SILLY', kind: 'count',
+    tiers: [[2,1,'goofy :P'],[8,2,'CLOWNING x8'],[20,3,'CERTIFIED GOBLIN!!'],[40,4,'🤡 FULL CLOWN MODE!!! MEETING RUINED!!!']] },
   lookAway: { icon: '👀', label: 'DISTRACTED', kind: 'count',
     tiers: [[3,1,'psst, focus'],[10,2,'DISTRACTED x10'],[25,3,'ARE YOU EVEN HERE?!'],[50,4,'👀 TOUCH GRASS!!! THIS CALL IS OVER!!!']] },
 };
-const ORDER = ['smile', 'talk', 'nod', 'shake', 'brow', 'blink', 'lookAway'];
+const ORDER = ['smile', 'talk', 'nod', 'shake', 'brow', 'surprise', 'silly', 'blink', 'lookAway'];
 
 // Landmarks (MediaPipe FaceMesh): 1 = nose tip, 234/454 = cheeks, 10/152 = top/chin.
 const blendMapFrom = (cats) => {
@@ -89,7 +95,7 @@ class CallWrapped extends Tracker {
     this.stats = {};
     for (const k of Object.keys(ACTIONS)) this.stats[k] = { count: 0, time: 0, tier: -1 };
     this.onCamera = 0; this.away = 0;
-    this.sig = { smile: false, blinkL: false, blinkR: false, brow: false, look: 0, jawPrev: null, jawEMA: 0 };
+    this.sig = { smile: false, blinkL: false, brow: false, surprise: false, silly: false, look: 0, jawPrev: null, jawEMA: 0 };
     this.nodOsc = new Osc(NOD_AMP, OSC_GAP);
     this.shakeOsc = new Osc(SHAKE_AMP, OSC_GAP);
     this.toasts = [];
@@ -191,9 +197,18 @@ class CallWrapped extends Tracker {
     if (!this.sig.blinkL && bl > BLINK_ON) { this.sig.blinkL = true; this.bump('blink'); }
     else if (this.sig.blinkL && bl < BLINK_OFF) this.sig.blinkL = false;
 
-    // brow raise
-    if (!this.sig.brow && br > BROW_ON) { this.sig.brow = true; this.bump('brow'); }
+    // brow raise (only when mouth closed → otherwise it reads as surprise)
+    if (!this.sig.brow && br > BROW_ON && jaw < 0.3) { this.sig.brow = true; this.bump('brow'); }
     else if (this.sig.brow && br < BROW_OFF) this.sig.brow = false;
+
+    // surprise (open mouth + raised brows)
+    if (!this.sig.surprise && jaw > SURP_JAW && br > SURP_BROW) { this.sig.surprise = true; this.bump('surprise'); }
+    else if (this.sig.surprise && (jaw < SURP_JAW - 0.1 || br < SURP_BROW - 0.1)) this.sig.surprise = false;
+
+    // silly face (tongue out / cheeks puffed)
+    const silly = Math.max(B.tongueOut || 0, B.cheekPuff || 0);
+    if (!this.sig.silly && silly > SILLY_ON) { this.sig.silly = true; this.bump('silly'); }
+    else if (this.sig.silly && silly < SILLY_OFF) this.sig.silly = false;
 
     // talking: sustained jaw movement
     if (this.sig.jawPrev != null) {
@@ -236,7 +251,10 @@ class CallWrapped extends Tracker {
       ['THE SKEPTIC', s.shake.count * 2.5, 'trusted no one. respect.'],
       ['THE DAYDREAMER', s.lookAway.count * 3 + this.away * 0.2, 'physically present. mentally gone.'],
       ['THE MAIN CHARACTER', s.talk.time * 0.06, 'the mic feared you'],
-      ['THE NPC', 40 - (s.smile.count + s.nod.count + s.talk.time * 0.05), 'did you even move?'],
+      ['THE DRAMA QUEEN', s.surprise.count * 2.5, 'gasped at literally everything'],
+      ['THE CLOWN', s.silly.count * 3, 'this was a serious meeting, allegedly'],
+      ['THE NPC', 12 - (s.smile.count + s.nod.count + s.shake.count + s.brow.count
+        + s.surprise.count + s.silly.count + s.lookAway.count + s.talk.time * 0.05), 'did you even move?'],
     ];
     cand.sort((a, b) => b[1] - a[1]);
     return cand[0];
@@ -244,6 +262,7 @@ class CallWrapped extends Tracker {
   chaosScore() {
     const s = this.stats;
     return Math.round(s.smile.count * 2 + s.nod.count * 2 + s.shake.count * 2 + s.brow.count
+      + s.surprise.count * 2 + s.silly.count * 2.5
       + s.blink.count * 0.3 + s.lookAway.count * 3 + s.talk.time * 0.25);
   }
 
@@ -314,15 +333,15 @@ class CallWrapped extends Tracker {
     g.fillText(`"${sub}"`, W / 2, 158);
 
     // stat grid
-    g.font = '600 28px ui-monospace, Menlo, monospace'; g.textBaseline = 'middle';
+    g.font = '600 25px ui-monospace, Menlo, monospace'; g.textBaseline = 'middle';
     const rows = ORDER.map((k) => {
       const s = this.stats[k], cfg = ACTIONS[k];
       return `${cfg.icon}  ${cfg.label.padEnd(11)} ${cfg.kind === 'time' ? fmt(s.time) : s.count}`;
     });
     rows.push(`🎥  ${'ON CAMERA'.padEnd(11)} ${fmt(this.onCamera)}`);
-    let yy = 210;
+    let yy = 196;
     g.textAlign = 'left';
-    for (const r of rows) { g.fillStyle = '#e8e8ef'; g.fillText(r, W / 2 - 215, yy); yy += 37; }
+    for (const r of rows) { g.fillStyle = '#e8e8ef'; g.fillText(r, W / 2 - 215, yy); yy += 33; }
 
     g.textAlign = 'center';
     g.fillStyle = '#ffd23f'; g.font = '800 36px ui-monospace, Menlo, monospace';
