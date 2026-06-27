@@ -15,6 +15,7 @@
 {"id":"eyelasers","tags":["face","gesture","motion"],"blurb":"Gaze-targeted lasers fire from eyes"},
 {"id":"eyezoom","tags":["face","subtle","clean"],"blurb":"Magnified circular zoom on each eye"},
 {"id":"facedots","tags":["face","minimal","tracking"],"blurb":"All 478 face landmarks as white dots"},
+{"id":"faceoff","tags":["face","hands","gesture","fun","tracking"],"blurb":"Pinch and pull your eyes, nose or mouth right off your face"},
 {"id":"facefill","tags":["face","motion","color"],"blurb":"Neon mesh overlay reacts to head motion"},
 {"id":"facegravity","tags":["face","fun","motion"],"blurb":"Features melt downward with physics"},
 {"id":"facelines","tags":["face","motion","tracking","subtle"],"blurb":"Eyes and lips drawn with motion energy"},

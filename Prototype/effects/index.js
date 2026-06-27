@@ -61,6 +61,7 @@ import poseStages    from './registry/poseStages.js';
 import sandbox       from './registry/sandbox.js';
 import callWrapped   from './registry/callwrapped.js';
 import chomp         from './registry/chomp.js';
+import faceOff       from './registry/faceoff.js';
 
 import scan         from './registry/scan.js';
 import pixelDrift   from './registry/pixelDrift.js';
@@ -71,7 +72,7 @@ import feedback     from './registry/feedback.js';
 const RAW = [
   // VIRAL — adding back one at a time.
   catAttack, snowPile, realityTear, gestureSpells, portalPull, sandbox,
-  callWrapped, chomp,
+  callWrapped, chomp, faceOff,
   faceGravity, headbang, auraScan, stareOff, poseStages, timeEcho,
   // Narrative AR (3D objects + physics + gestures).
   glasses, iceCream, mouthFire, faceMask, fingerPaint,
