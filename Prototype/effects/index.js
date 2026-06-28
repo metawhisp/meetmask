@@ -64,6 +64,7 @@ import chomp         from './registry/chomp.js';
 import faceOff       from './registry/faceoff.js';
 import faceSimon     from './registry/facesimon.js';
 import goblin        from './registry/goblin.js';
+import leanIn        from './registry/leanin.js';
 
 import scan         from './registry/scan.js';
 import pixelDrift   from './registry/pixelDrift.js';
@@ -74,7 +75,7 @@ import feedback     from './registry/feedback.js';
 const RAW = [
   // VIRAL — adding back one at a time.
   catAttack, snowPile, realityTear, gestureSpells, portalPull, sandbox,
-  callWrapped, chomp, faceOff, faceSimon, goblin,
+  callWrapped, chomp, faceOff, faceSimon, goblin, leanIn,
   faceGravity, headbang, auraScan, stareOff, poseStages, timeEcho,
   // Narrative AR (3D objects + physics + gestures).
   glasses, iceCream, mouthFire, faceMask, fingerPaint,

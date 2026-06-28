@@ -34,6 +34,7 @@
 {"id":"icecream","tags":["face","fun"],"blurb":"3D ice cream cone on your head, melting drips"},
 {"id":"invert","tags":["color","filter"],"blurb":"Inverted colors with normal lens around cursor"},
 {"id":"kaleidoscope","tags":["trippy","color"],"blurb":"Rotating sixfold symmetry follows your cursor"},
+{"id":"leanin","tags":["face","fun","tracking","trippy"],"blurb":"Lean toward the camera to morph into a chrome alien"},
 {"id":"linerain","tags":["glitch","motion"],"blurb":"Falling trails with cursor-triggered lightning"},
 {"id":"meetamask-studio","tags":["color","filter","clean"],"blurb":"Cinematic teal-to-amber color grade"},
 {"id":"mosaic","tags":["filter","minimal","edges"],"blurb":"Adaptive pixelation focused on pointer"},
