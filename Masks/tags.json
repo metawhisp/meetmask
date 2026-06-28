@@ -27,6 +27,7 @@
 {"id":"fisheye","tags":["filter","subtle","edges"],"blurb":"Barrel lens distortion effect"},
 {"id":"gesturespells","tags":["gesture","hands","fun","motion"],"blurb":"Six magical spells from hand gestures"},
 {"id":"glasses","tags":["face","tracking","clean"],"blurb":"Virtual AR glasses on your face"},
+{"id":"goblin","tags":["face","fun","tracking","motion"],"blurb":"A green goblin head mirrors your every expression"},
 {"id":"halftone","tags":["filter","edges","hands"],"blurb":"Pixel halftone with hand control"},
 {"id":"headbang","tags":["motion","face","tracking","fun"],"blurb":"Concert mode triggered by head shaking"},
 {"id":"hexpixel","tags":["filter","edges","minimal"],"blurb":"Hexagonal grid pixelation with focus detail"},
