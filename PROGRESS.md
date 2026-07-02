@@ -81,6 +81,14 @@ System Settings → **General → Login Items & Extensions** → секция **
 - **Утечка/дубль таймера (codex P2):** `startStreamingSource`/`startStreamingSink` перезаписывают `_sourceTimer`/`_sinkTimer` без отмены старого; `stop` гасит только последний. Фикс: создавать таймер только на переходе 0→1, старый cancel.
 - **Несинхронные счётчики (F8):** `_streamingSourceCounter`/`_streamingSinkCounter` читаются/пишутся из разных очередей без lock.
 
+## Прод-релиз хоста ОБНОВЛЁН (2026-07-02, поздний вечер)
+- Прод (`dl.meetamask.com/app` → Release v0.2 `MEETAMASK.zip`) отставал от main на 15 коммитов (лежал билд от 11 июня без новых масок). Пересобран и залит свежий хост: 56 папок масок, все 7 новых пресетов (chomp, callwrapped, sandbox, faceoff, facesimon, goblin, leanin).
+- Путь — строго по правилу от 2026-06-11: `xcodebuild archive` → `-exportArchive` (method=developer-id, `build/exportOptions-devid.plist`) → `dist/notarize.sh` (профиль `meetamask`) → staple → zip → `gh release upload v0.2 --clobber`. Артефакты: `build/rel-20260702/`.
+- Заминка: нотаризация сперва дала `HTTP 403 — agreement expired`; founder принял обновлённое соглашение на developer.apple.com → повтор прошёл (Accepted, id c6a3bd9e).
+- **Проверено сквозняком как юзер:** скачан с `dl.meetamask.com/app` (1.46 МБ) → `spctl: accepted, Notarized Developer ID` + `stapler validate OK` + hardened runtime, без get-task-allow + 56 масок, 7/7 новых на месте. main запушен в origin (045b69a..58f839b).
+- Движок в релизе не трогали — его исходники не менялись с 2026-06-03, прод-зип актуален.
+- Примечание: в `/Applications` на маке founder'а стоит dev-сборка (Apple Development, от локальной пересборки 28 июня) — для локальной работы это норм; прод-юзеры получают нотаризованный билд.
+
 ## Хост теперь РЕАЛЬНО ЗАПУСКАЕТСЯ (2026-06-11) — найден и закрыт скрытый блокер
 - **Баг (мой промах):** билд от `dist/sign-host.sh` проходил Gatekeeper (`spctl accepted`), но macOS/AMFI убивал его на старте (SIGKILL, RBS 163). Причина — у app есть системное расширение, чьи restricted-entitlements требуют **Developer ID provisioning profile**, которого ручная подпись не вшивала. «Подпись принята» ≠ «запускается». Раньше я этого не проверял (тестировал только spctl), отсюда ложное «раздача живая».
 - **Фикс:** founder вошёл в Apple ID в Xcode → `xcodebuild -exportArchive` (method=developer-id, `-allowProvisioningUpdates`) сам выпустил профиль `Mac Team Direct Provisioning Profile` и вшил его → нотаризация (id 445fb64d) → staple → залит в релиз v0.2 (clobber).
