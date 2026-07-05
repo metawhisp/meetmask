@@ -103,11 +103,32 @@ int main(int argc, char* argv[]) {
     settings.no_sandbox = true;
     settings.windowless_rendering_enabled = true;
 
-    // Per-app cache dir (silences the default-path warning / process-singleton issues).
-    NSString* cacheDir =
-        [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES)
-            firstObject];
-    cacheDir = [cacheDir stringByAppendingPathComponent:@"ai.overchat.meetamask.engine"];
+    // Per-SESSION cache dir. Chromium keeps a PROCESS-SINGLETON keyed on this path: when two
+    // engine processes shared ONE dir, the second handed its launch to the first, which popped a
+    // stray blank "New Tab" WINDOW on screen (looked like a random Chrome opening). Two engines
+    // coexist whenever the host app is opened more than once. Deriving the dir from the per-instance
+    // shm key — unique per host session, but STABLE across mask switches so the HTTP cache (e.g. the
+    // MediaPipe download) is reused, not re-fetched every switch — gives each host its own singleton
+    // scope, so they never collide and no window is ever shown.
+    NSFileManager* fm = [NSFileManager defaultManager];
+    NSString* cacheBase =
+        [[NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) firstObject]
+            stringByAppendingPathComponent:@"ai.overchat.meetamask.engine"];
+    [fm createDirectoryAtPath:cacheBase withIntermediateDirectories:YES attributes:nil error:nil];
+    // Bound disk: drop instance dirs left by long-dead sessions (best-effort, >24h untouched).
+    NSDate* cutoff = [NSDate dateWithTimeIntervalSinceNow:-24 * 60 * 60];
+    for (NSString* name in [fm contentsOfDirectoryAtPath:cacheBase error:nil]) {
+      NSString* sib = [cacheBase stringByAppendingPathComponent:name];
+      NSDate* mod = [[fm attributesOfItemAtPath:sib error:nil] fileModificationDate];
+      if (mod && [mod compare:cutoff] == NSOrderedAscending) [fm removeItemAtPath:sib error:nil];
+    }
+    // Session key = the shm file's basename (…/meetamask-frame-<UUID>.bin → meetamask-frame-<UUID>);
+    // falls back to the pid when the engine is run standalone without --shm.
+    NSString* sessionKey =
+        shmPath.empty()
+            ? [NSString stringWithFormat:@"inst-%d", getpid()]
+            : [[[NSString stringWithUTF8String:shmPath.c_str()] lastPathComponent] stringByDeletingPathExtension];
+    NSString* cacheDir = [cacheBase stringByAppendingPathComponent:sessionKey];
     CefString(&settings.root_cache_path) = [cacheDir UTF8String];
 
     // Explicit CEF bundle paths, derived from THIS executable's real location. When the
