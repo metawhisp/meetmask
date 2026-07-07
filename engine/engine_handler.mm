@@ -6,7 +6,8 @@
 #include "include/cef_frame.h"
 #include "include/wrapper/cef_helpers.h"
 
-EngineHandler::EngineHandler(const std::string& shmPath) : shm_path_(shmPath) {}
+EngineHandler::EngineHandler(const std::string& shmPath, bool untrusted)
+    : shm_path_(shmPath), untrusted_(untrusted) {}
 
 // Injected once the mask page has loaded: (1) make getUserMedia always pick the
 // REAL webcam, never our own "MEETAMASK Camera" (would feed back on itself), and

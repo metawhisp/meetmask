@@ -5,8 +5,8 @@
 #include "include/cef_command_line.h"
 #include "include/wrapper/cef_helpers.h"
 
-EngineApp::EngineApp(const std::string& url, const std::string& shmPath)
-    : url_(url), shm_path_(shmPath) {}
+EngineApp::EngineApp(const std::string& url, const std::string& shmPath, bool untrusted)
+    : url_(url), shm_path_(shmPath), untrusted_(untrusted) {}
 
 void EngineApp::OnBeforeCommandLineProcessing(
     const CefString& process_type,
@@ -21,10 +21,13 @@ void EngineApp::OnBeforeCommandLineProcessing(
   command_line->AppendSwitch("mute-audio");
 
   // Trusted built-in masks (and the bundled effect runtime) are multi-file ES modules
-  // loaded from file://. Chromium blocks relative module imports on file:// by default;
-  // allow them. Safe because the host only ever loads app-approved bundled masks
-  // (EngineFrameReceiver.isApprovedMaskURL) — never user/remote HTML.
-  command_line->AppendSwitch("allow-file-access-from-files");
+  // loaded from file://; Chromium blocks relative module imports on file:// by default, so
+  // allow them. UNTRUSTED (imported) masks do NOT get this flag — it is exactly what lets a
+  // mask fetch()/XHR arbitrary local files (…/.ssh/id_rsa) and exfiltrate them. Withholding
+  // it makes each file:// page an opaque origin that cannot read other files (proven by PoC).
+  if (!untrusted_) {
+    command_line->AppendSwitch("allow-file-access-from-files");
+  }
 
   // Browser process only (empty process_type).
   if (process_type.empty()) {
@@ -43,7 +46,7 @@ void EngineApp::OnBeforeCommandLineProcessing(
 void EngineApp::OnContextInitialized() {
   CEF_REQUIRE_UI_THREAD();
 
-  CefRefPtr<EngineHandler> handler(new EngineHandler(shm_path_));
+  CefRefPtr<EngineHandler> handler(new EngineHandler(shm_path_, untrusted_));
 
   CefBrowserSettings browser_settings;
   browser_settings.windowless_frame_rate = 30;

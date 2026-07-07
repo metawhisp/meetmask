@@ -86,8 +86,10 @@ int main(int argc, char* argv[]) {
     // page — which dumped the shm buffer into ~/Downloads and popped a browser.
     //   --shm=<path>   shared frame buffer
     //   --mask=<url>   mask page to render
+    //   --untrusted    run the mask in the FS + network jail (imported / user masks)
     std::string url = "about:blank";
     std::string shmPath;
+    bool untrusted = false;
     const std::string kShm = "--shm=";
     const std::string kMask = "--mask=";
     for (int i = 1; i < argc; ++i) {
@@ -96,6 +98,8 @@ int main(int argc, char* argv[]) {
         shmPath = arg.substr(kShm.size());
       } else if (arg.rfind(kMask, 0) == 0) {
         url = arg.substr(kMask.size());
+      } else if (arg == "--untrusted") {
+        untrusted = true;
       }
     }
 
@@ -155,7 +159,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    CefRefPtr<EngineApp> app(new EngineApp(url, shmPath));
+    CefRefPtr<EngineApp> app(new EngineApp(url, shmPath, untrusted));
 
     if (!CefInitialize(main_args, settings, app.get(), nullptr)) {
       return CefGetExitCode();

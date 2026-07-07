@@ -9,7 +9,7 @@
 // browser that renders the mask page once CEF is initialized.
 class EngineApp : public CefApp, public CefBrowserProcessHandler {
  public:
-  EngineApp(const std::string& url, const std::string& shmPath);
+  EngineApp(const std::string& url, const std::string& shmPath, bool untrusted);
 
   // CefApp
   CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override {
@@ -25,6 +25,7 @@ class EngineApp : public CefApp, public CefBrowserProcessHandler {
  private:
   const std::string url_;
   const std::string shm_path_;
+  const bool untrusted_;
   IMPLEMENT_REFCOUNTING(EngineApp);
 };
 
