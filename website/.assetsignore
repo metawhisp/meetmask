@@ -1,0 +1,5 @@
+wrangler.toml
+.assetsignore
+RELEASE-PLAN.md
+build-catalog.mjs
+_deferred/

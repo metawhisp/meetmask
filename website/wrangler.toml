@@ -1,0 +1,17 @@
+# Cloudflare deploy for the marketing site (assets-only Worker).
+# Deploy:  cd website && CLOUDFLARE_API_TOKEN=$(security find-generic-password -l cloudflare_meetamask_workers -w) wrangler deploy
+# Serves website/ as static assets (minus .assetsignore); clean URLs are the Static-Assets default
+# (/create ⇐ create.html, /create.html → 307 /create). Routes below are the live triggers — keep them.
+name = "meetamask-site"
+compatibility_date = "2026-06-01"
+
+[assets]
+directory = "."
+
+[[routes]]
+pattern = "meetamask.com/*"
+zone_name = "meetamask.com"
+
+[[routes]]
+pattern = "www.meetamask.com/*"
+zone_name = "meetamask.com"
