@@ -369,11 +369,11 @@ struct StageView: View {
     private func importMask() {
         let panel = NSOpenPanel()
         panel.prompt = "Add"
-        panel.message = "Выбери папку маски или .zip (внутри должен быть index.html)"
+        panel.message = "Папка маски, .zip, или один index.html (например, от Claude)"
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = true
         panel.canChooseFiles = true
-        panel.allowedContentTypes = [.zip, .folder]
+        panel.allowedContentTypes = [.zip, .folder, .html]
         guard panel.runModal() == .OK, let src = panel.url else { return }
         DispatchQueue.global(qos: .userInitiated).async {
             do {
@@ -473,6 +473,7 @@ struct StageView: View {
 
 private struct MaskGuideView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var copied = false
     private enum Kind { case ok, no }
 
     var body: some View {
@@ -494,6 +495,26 @@ private struct MaskGuideView: View {
                     Text("A mask is a self-contained web page. Imported masks are other people’s code, so each one runs in a locked sandbox — no disk, no network, no windows. That’s what keeps a “cute cat mask” from stealing your files.")
                         .font(Brand.mono(11.5)).foregroundStyle(Brand.ink2).lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true).padding(.top, 14)
+
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(Self.claudePrompt, forType: .string)
+                        copied = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { copied = false }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: copied ? "checkmark" : "doc.on.doc").font(.system(size: 11, weight: .semibold))
+                            Text(copied ? "Copied — paste into Claude" : "Copy prompt for Claude")
+                                .font(Brand.mono(11, .semibold)).tracking(0.5).textCase(.uppercase)
+                        }
+                        .foregroundStyle(Brand.stage)
+                        .frame(maxWidth: .infinity).padding(.vertical, 11)
+                        .background(Brand.ink).clipShape(RoundedRectangle(cornerRadius: 9))
+                    }
+                    .buttonStyle(.plain).padding(.top, 16)
+                    Text("No code needed: paste it into Claude, describe your effect, save the index.html it returns, and Add mask.")
+                        .font(Brand.mono(10)).foregroundStyle(Brand.muted).lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true).padding(.top, 8)
 
                     group("Accepted", [
                         (.ok, "A .zip or a folder with index.html (root, or one level down)"),
@@ -540,4 +561,38 @@ private struct MaskGuideView: View {
             }
         }
     }
+
+    // The Claude prompt (mirrors website/mask-prompt.txt) — copied to the pasteboard above.
+    static let claudePrompt = """
+    Build me a MEETAMASK mask.
+
+    MEETAMASK is a macOS virtual camera: it runs a small web page off-screen, draws my
+    webcam plus an effect, and streams the result into Zoom / Google Meet / Teams. Your
+    job is to write that web page.
+
+    ## Output
+    Return ONE complete, self-contained `index.html` in a single code block — nothing
+    else. It must run with ZERO external files and ZERO network.
+
+    ## Hard rules (the mask runs in a locked sandbox — break these and it renders black)
+    1. No network, no CDN. No `<script src="https://…">`, no web fonts, no `fetch()`/XHR
+       to any URL. Inline every bit of CSS and JS.
+    2. No `fetch()` / XHR at all (even for local files) and no ES modules (`import`,
+       `type="module"`). Use plain inline `<script>`. If you need a library, paste its
+       full minified UMD source straight into a `<script>` tag.
+    3. No new windows, no navigation, no downloads, no audio.
+    4. Draw to a `<canvas width="1280" height="720">` that fills the page (16:9).
+    5. Include `<button id="startBtn">` — MEETAMASK auto-clicks it to start.
+    6. Use the camera: navigator.mediaDevices.getUserMedia({ video: { width: 1280,
+       height: 720 } }), draw each frame to the canvas, then paint your effect with
+       Canvas 2D / WebGL and requestAnimationFrame.
+    7. Do NOT mirror the output (the meeting app mirrors my self-view for me).
+
+    ## The effect I want
+    <<< describe your mask here — e.g. "a glowing neon outline around me that pulses when
+    I move, deep-blue background, my handle '@me' bottom-left" >>>
+
+    Once you give me the file: I save it as index.html, then in MEETAMASK I click
+    "Add mask" and pick it.
+    """
 }

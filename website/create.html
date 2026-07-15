@@ -74,6 +74,8 @@ ul.list li code{font-family:var(--mono);font-size:12.5px;background:#f1efe9;bord
 .code{margin-top:22px;background:#121110;border-radius:13px;padding:22px 22px;overflow-x:auto}
 .code pre{font-family:var(--mono);font-size:12.5px;line-height:1.65;color:#e9e6df;white-space:pre}
 .code .c{color:#8f8c85}
+.code.sc{margin-top:16px;max-height:360px;overflow:auto}
+.btnrow{display:flex;gap:9px;margin-top:22px;flex-wrap:wrap}
 
 ul.check{list-style:none;margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:0 30px}
 @media(max-width:820px){ul.check{grid-template-columns:1fr}}
@@ -196,6 +198,17 @@ footer{border-top:1px solid var(--line-2);padding:46px 0}
   </section>
 
   <section class="sec">
+    <div class="kick">Shortcut</div>
+    <h2>Let Claude build it</h2>
+    <p class="sub">No code? Copy this prompt, paste it into Claude (or any AI), describe the effect you want — it hands back a ready-to-import <code>index.html</code> with every sandbox rule baked in.</p>
+    <div class="btnrow">
+      <button class="btn btn-ink" id="copyPrompt"><span class="mono">Copy prompt</span></button>
+      <a class="btn btn-line" href="/mask-prompt.txt" download="meetamask-mask-prompt.txt"><span class="mono">Download .txt</span></a>
+    </div>
+    <div class="code sc"><pre id="promptText" class="c">Loading…</pre></div>
+  </section>
+
+  <section class="sec">
     <div class="kick">Before you import</div>
     <h2>Checklist</h2>
     <ul class="check">
@@ -225,5 +238,32 @@ footer{border-top:1px solid var(--line-2);padding:46px 0}
   <div class="mono">© 2026 · a stage for your webcam</div>
 </div></footer>
 
+<script>
+(function () {
+  var pre = document.getElementById('promptText');
+  var btn = document.getElementById('copyPrompt');
+  fetch('/mask-prompt.txt').then(function (r) { return r.text(); }).then(function (t) {
+    pre.textContent = t; pre.classList.remove('c');
+  }).catch(function () { pre.textContent = 'Use “Download .txt” above.'; });
+
+  function flash() {
+    var s = btn.querySelector('.mono'), o = s.textContent; s.textContent = 'Copied ✓';
+    setTimeout(function () { s.textContent = o; }, 1400);
+  }
+  function fallback(t) {
+    var ta = document.createElement('textarea');
+    ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+  btn.addEventListener('click', function () {
+    var t = pre.textContent || '';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(flash, function () { fallback(t); flash(); });
+    } else { fallback(t); flash(); }
+  });
+})();
+</script>
 </body>
 </html>

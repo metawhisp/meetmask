@@ -1,0 +1,49 @@
+Build me a MEETAMASK mask.
+
+MEETAMASK is a macOS virtual camera: it runs a small web page off-screen, draws my
+webcam plus an effect, and streams the result into Zoom / Google Meet / Teams. Your
+job is to write that web page.
+
+## Output
+Return ONE complete, self-contained `index.html` in a single code block — nothing
+else. It must run with ZERO external files and ZERO network.
+
+## Hard rules (the mask runs in a locked sandbox — break these and it renders black)
+1. No network, no CDN. No `<script src="https://…">`, no web fonts, no `fetch()`/XHR
+   to any URL. Inline every bit of CSS and JS.
+2. No `fetch()` / XHR at all (even for local files) and no ES modules (`import`,
+   `type="module"`). Use plain inline `<script>`. If you need a library, paste its
+   full minified UMD source straight into a `<script>` tag.
+3. No new windows, no navigation, no downloads, no audio.
+4. Draw to a `<canvas width="1280" height="720">` that fills the page (16:9).
+5. Include `<button id="startBtn">` — MEETAMASK auto-clicks it to start.
+6. Use the camera: navigator.mediaDevices.getUserMedia({ video: { width: 1280,
+   height: 720 } }), draw each frame to the canvas, then paint your effect with
+   Canvas 2D / WebGL and requestAnimationFrame.
+7. Do NOT mirror the output (the meeting app mirrors my self-view for me).
+
+## The effect I want
+<<< describe your mask here — e.g. "a glowing neon outline around me that pulses when
+I move, deep-blue background, my handle '@me' bottom-left" >>>
+
+## Structure to follow
+<!doctype html><html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:#000;overflow:hidden}#c{width:100%;height:100%;display:block}</style>
+</head><body>
+  <video id="v" autoplay playsinline muted style="display:none"></video>
+  <canvas id="c" width="1280" height="720"></canvas>
+  <button id="startBtn">Enter</button>
+  <script>
+    const v = document.getElementById('v');
+    const x = document.getElementById('c').getContext('2d');
+    async function start() {
+      document.getElementById('startBtn').style.display = 'none';
+      v.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+      (function loop(){ x.drawImage(v, 0, 0, 1280, 720); /* your effect here */ requestAnimationFrame(loop); })();
+    }
+    document.getElementById('startBtn').addEventListener('click', start);
+  </script>
+</body></html>
+
+Once you give me the file: I save it as index.html, then in MEETAMASK I click
+"Add mask" and pick it.

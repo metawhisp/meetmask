@@ -128,12 +128,19 @@ enum MaskLibrary {
         defer { try? fm.removeItem(at: tmp) }
 
         let staged: URL
-        if source.pathExtension.lowercased() == "zip" {
+        let ext = source.pathExtension.lowercased()
+        var isDir: ObjCBool = false
+        let exists = fm.fileExists(atPath: source.path, isDirectory: &isDir)
+        if ext == "zip" {
             try unzip(source, into: tmp); staged = tmp
-        } else {
-            var isDir: ObjCBool = false
-            guard fm.fileExists(atPath: source.path, isDirectory: &isDir), isDir.boolValue else { throw ImportError.unreadable }
+        } else if exists && isDir.boolValue {
             staged = source
+        } else if exists && (ext == "html" || ext == "htm") {
+            // A single page (e.g. straight from Claude) → wrap it as index.html in a fresh folder.
+            try fm.copyItem(at: source, to: tmp.appendingPathComponent("index.html"))
+            staged = tmp
+        } else {
+            throw ImportError.unreadable
         }
 
         // 2) Locate the mask root (dir directly containing index.html — the dir itself or one level down).
@@ -143,7 +150,9 @@ enum MaskLibrary {
         if hasEscapingSymlink(root) { throw ImportError.unreadable }
 
         // 4) Copy into userMasksDir/<id> (sanitized, unique, never shadowing a built-in).
-        let id = uniqueUserID(base: sanitizeID(source.deletingPathExtension().lastPathComponent))
+        var base = sanitizeID(source.deletingPathExtension().lastPathComponent)
+        if base == "index" || base == "mask" { base = "my-mask" }   // a bare index.html shouldn't become "Index"
+        let id = uniqueUserID(base: base)
         let dest = userRoot.appendingPathComponent(id, isDirectory: true)
         try? fm.removeItem(at: dest)
         try fm.copyItem(at: root, to: dest)
