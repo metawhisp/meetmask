@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MEETAMASK — make a mask</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32.png"/>
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/brand/favicon-192.png"/>
+<link rel="apple-touch-icon" href="/assets/brand/favicon-180.png"/>
+<link rel="canonical" href="https://meetamask.com/create"/>
+<meta name="description" content="Bring your own mask. What MEETAMASK accepts, what the sandbox blocks, and how to build a mask that runs on any call."/>
+<meta property="og:title" content="MEETAMASK — make a mask"/>
+<meta property="og:description" content="Bring your own mask: the format, the rules, and a minimal skeleton."/>
+<meta property="og:image" content="https://meetamask.com/assets/brand/meetamask-square-1024.png"/>
+<meta property="og:url" content="https://meetamask.com/create"/>
+<style>
+:root{
+  --bg:#fbfbfa; --ink:#171717; --ink-2:#56544f; --gray:#8f8c85;
+  --line:#d8d6d0; --line-2:#e6e4de; --line-strong:#c7c7c7;
+  --serif:"Times New Roman",Times,serif;
+  --sans:"Helvetica Neue",Helvetica,"Arial Nova",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Menlo","Roboto Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+a{color:inherit;text-decoration:none}
+html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;min-height:100vh}
+::selection{background:var(--ink);color:var(--bg)}
+.shell{max-width:1240px;margin:0 auto;padding:0 40px}
+@media(max-width:640px){.shell{padding:0 22px}}
+.mono{font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;font-size:12px;line-height:1}
+.kick{font-family:var(--mono);text-transform:uppercase;letter-spacing:.16em;font-size:11.5px;color:var(--gray)}
+
+header{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line-2)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:70px}
+.logo{display:flex;align-items:center;gap:11px}
+.logo svg{width:25px;height:25px}
+.logo .n{font-family:var(--serif);font-weight:700;font-size:21px;letter-spacing:.01em}
+.nav-mid{display:flex;gap:30px}
+.nav-mid a{font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;font-size:11.5px;color:var(--ink-2);transition:color .15s}
+.nav-mid a:hover,.nav-mid a.cur{color:var(--ink)}
+.nav-r{display:flex;gap:9px;align-items:center}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;border:1px solid transparent;transition:background .18s,color .18s,border-color .18s,transform .18s}
+.btn .mono{font-size:12px}
+.btn-ink{height:48px;padding:0 20px;border-radius:8px;background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn-ink:hover{background:#000;transform:translateY(-1px)}
+.btn-line{height:48px;padding:0 18px;border-radius:8px;background:#fff;color:var(--ink);border-color:var(--line-strong)}
+.btn-line:hover{border-color:var(--ink)}
+.btn-sm{height:40px;border-radius:7px}.btn-sm.btn-ink{padding:0 15px}.btn-sm.btn-line{padding:0 14px}
+
+/* ---------- doc ---------- */
+.head{padding:66px 0 34px;border-bottom:1px solid var(--line-2)}
+.head h1{font-family:var(--serif);font-weight:700;text-transform:uppercase;font-size:clamp(40px,6vw,80px);line-height:.93;letter-spacing:-.005em;margin-top:18px;color:#121110}
+.head .lead{font-size:clamp(16px,1.4vw,18px);line-height:1.55;color:var(--ink-2);max-width:56ch;margin-top:20px}
+.head .cta{display:flex;gap:9px;flex-wrap:wrap;margin-top:28px}
+
+.sec{padding:52px 0;border-bottom:1px solid var(--line-2)}
+.sec h2{font-family:var(--serif);font-weight:700;text-transform:uppercase;font-size:clamp(26px,3.4vw,40px);line-height:1;letter-spacing:-.01em;margin-top:12px;color:#121110}
+.sec p.sub{font-size:16px;color:var(--ink-2);max-width:60ch;margin-top:14px}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:26px}
+@media(max-width:820px){.two{grid-template-columns:1fr}.nav-mid{display:none}}
+.card{border:1px solid var(--line-strong);border-radius:13px;background:#fff;padding:22px 24px}
+.card h3{font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;font-size:11.5px;color:var(--gray);display:flex;align-items:center;gap:9px}
+.card h3 .rad{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--ink);position:relative}
+.card h3 .rad::after{content:"";position:absolute;inset:2px;border-radius:50%;background:var(--ink)}
+ul.list{list-style:none;margin-top:6px}
+ul.list li{padding:11px 0;border-top:1px solid var(--line-2);display:flex;gap:12px;font-size:14.5px;color:var(--ink-2);line-height:1.5}
+ul.list li:first-child{border-top:0}
+ul.list li b{color:var(--ink);font-weight:600}
+ul.list li code{font-family:var(--mono);font-size:12.5px;background:#f1efe9;border:1px solid var(--line-2);border-radius:5px;padding:1px 5px;color:var(--ink)}
+.mk{flex:0 0 18px;font-family:var(--serif);font-weight:700;font-size:16px;line-height:1.35;text-align:center;color:var(--ink)}
+
+.code{margin-top:22px;background:#121110;border-radius:13px;padding:22px 22px;overflow-x:auto}
+.code pre{font-family:var(--mono);font-size:12.5px;line-height:1.65;color:#e9e6df;white-space:pre}
+.code .c{color:#8f8c85}
+
+ul.check{list-style:none;margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:0 30px}
+@media(max-width:820px){ul.check{grid-template-columns:1fr}}
+ul.check li{display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line-2);font-size:14.5px;color:var(--ink-2)}
+ul.check li .box{flex:0 0 15px;height:15px;border:1.5px solid var(--ink);border-radius:4px}
+
+.final{padding:70px 0}
+.final h2{font-family:var(--serif);font-weight:700;text-transform:uppercase;font-size:clamp(30px,4.4vw,54px);line-height:.98;letter-spacing:-.01em;margin-top:12px;color:#121110}
+.final .cta{display:flex;gap:9px;flex-wrap:wrap;margin-top:26px}
+
+footer{border-top:1px solid var(--line-2);padding:46px 0}
+.foot{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.foot .mono{color:var(--gray)}
+</style>
+</head>
+<body>
+
+<svg style="display:none"><symbol id="mask" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="232" fill="#171717"/>
+  <path d="M512,162C650,164 732,252 742,402C750,524 728,656 650,768C596,846 556,876 512,876C468,876 428,846 374,768C296,656 274,524 282,402C292,252 374,164 512,162Z" fill="#fbfbfa"/>
+  <g fill="#171717"><path d="M366,452C392,424 462,424 488,452C462,482 392,482 366,452Z"/><path d="M536,452C562,424 632,424 658,452C632,482 562,482 536,452Z"/></g>
+  <ellipse cx="489" cy="616" rx="9" ry="13" fill="#8f8c85"/><ellipse cx="535" cy="616" rx="9" ry="13" fill="#8f8c85"/>
+  <path d="M452,720C488,727 536,727 572,720" fill="none" stroke="#6f6c64" stroke-width="9" stroke-linecap="round"/>
+</symbol></svg>
+
+<header><div class="shell nav">
+  <a class="logo" href="/"><svg><use href="#mask"/></svg><span class="n">MEETAMASK</span></a>
+  <nav class="nav-mid"><a href="/#how">How it works</a><a href="/#features">Features</a><a href="/gallery">Masks</a><a href="/create" class="cur">Make a mask</a></nav>
+  <div class="nav-r"><a class="btn btn-sm btn-line" href="/gallery"><span class="mono">See all masks</span></a><a class="btn btn-sm btn-ink" href="/#download"><span class="mono">Download</span></a></div>
+</div></header>
+
+<main class="shell">
+
+  <section class="head">
+    <div class="kick">Bring your own</div>
+    <h1>Make a mask</h1>
+    <p class="lead">A mask is a small self-contained web page. MEETAMASK runs it offscreen, draws your webcam and your effect, and streams the result into Zoom, Meet or Teams. Imported masks are other people’s code — so every one runs in a <b>locked sandbox</b>: no disk, no network, no windows. Here’s exactly what that allows.</p>
+    <div class="cta">
+      <a class="btn btn-ink" href="/#download"><span class="mono">Download MEETAMASK</span></a>
+      <a class="btn btn-line" href="/gallery"><span class="mono">See built-in masks</span></a>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="kick">The format</div>
+    <h2>What we accept</h2>
+    <div class="two">
+      <div class="card">
+        <h3><span class="rad"></span>Accepted</h3>
+        <ul class="list">
+          <li><span class="mk">✓</span><span>A <b>.zip</b> or a <b>folder</b> containing <code>index.html</code> — at the root, or one level down.</span></li>
+          <li><span class="mk">✓</span><span><b>Fully self-contained</b> — every script, style, image, font and model lives inside the package.</span></li>
+          <li><span class="mk">✓</span><span><b>≤ 200 MB.</b></span></li>
+          <li><span class="mk">✓</span><span>Draws to fill <b>1280×720</b> (16:9).</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="rad"></span>Won’t work — the sandbox blocks it</h3>
+        <ul class="list">
+          <li><span class="mk">✕</span><span><b>No network of any kind.</b> No <code>fetch</code> to the internet, no <code>&lt;script src="https://…"&gt;</code>, no CDN, fonts or APIs. <b>MediaPipe / Three.js from a CDN will not load</b> — bundle them.</span></li>
+          <li><span class="mk">✕</span><span><b>No <code>fetch</code> / XHR even for your own files</b>, and <b>no ES modules</b> (<code>import</code>, <code>type="module"</code>) — blocked on local pages.</span></li>
+          <li><span class="mk">✕</span><span><b>No reading anything outside your folder</b> — zero access to the user’s files.</span></li>
+          <li><span class="mk">✕</span><span><b>No new windows / navigation, no downloads, no audio</b> (video-only, muted).</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="kick">The toolbox</div>
+    <h2>What you can use</h2>
+    <p class="sub">Everything a normal in-page script can do, minus the network. The camera is handed to you automatically.</p>
+    <div class="two">
+      <div class="card">
+        <h3><span class="rad"></span>APIs</h3>
+        <ul class="list">
+          <li><span class="mk">✓</span><span><b>Canvas 2D &amp; WebGL</b>, <code>requestAnimationFrame</code>, all in-page JS.</span></li>
+          <li><span class="mk">✓</span><span><b>The webcam:</b> <code>getUserMedia({ video:true })</code> — we give you the real camera. Draw its frames to canvas and paint on top.</span></li>
+          <li><span class="mk">✓</span><span>Output is <b>not mirrored</b> — the meeting app mirrors your self-view for you.</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="rad"></span>Loading code &amp; assets</h3>
+        <ul class="list">
+          <li><span class="mk">✓</span><span>Local files via <b>tags</b>: <code>&lt;script src="./app.js"&gt;</code>, <code>&lt;img src="./x.png"&gt;</code>, <code>&lt;link href="./s.css"&gt;</code>.</span></li>
+          <li><span class="mk">✓</span><span>Use <b>UMD / classic</b> library builds (a global like <code>THREE</code>), not the ESM build.</span></li>
+          <li><span class="mk">✓</span><span>Embed data as <code>data:</code> or <code>blob:</code> URIs (base64 a model or image into your JS).</span></li>
+          <li><span class="mk">✓</span><span>Auto-start: include <code>&lt;button id="startBtn"&gt;</code> — we click it for you. (Or start on load.)</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="kick">Copy-paste</div>
+    <h2>Minimal skeleton</h2>
+    <p class="sub">A complete, valid mask: it shows your camera with a start button. Add your effect inside the loop.</p>
+    <div class="code"><pre><span class="c">&lt;!-- index.html — the whole mask --&gt;</span>
+&lt;!doctype html&gt;&lt;html&gt;&lt;head&gt;&lt;meta charset="utf-8"&gt;
+&lt;style&gt;html,body{margin:0;background:#000;overflow:hidden}#c{width:100%;height:100%}&lt;/style&gt;
+&lt;/head&gt;&lt;body&gt;
+  &lt;video id="v" autoplay playsinline muted style="display:none"&gt;&lt;/video&gt;
+  &lt;canvas id="c" width="1280" height="720"&gt;&lt;/canvas&gt;
+  &lt;button id="startBtn"&gt;Enter&lt;/button&gt;
+  &lt;script&gt;
+    const v = document.getElementById('v');
+    const x = document.getElementById('c').getContext('2d');
+    async function start() {
+      document.getElementById('startBtn').style.display = 'none';
+      v.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+      (function loop(){
+        x.drawImage(v, 0, 0, 1280, 720);
+        <span class="c">/* …your effect here… */</span>
+        requestAnimationFrame(loop);
+      })();
+    }
+    document.getElementById('startBtn').addEventListener('click', start);
+  &lt;/script&gt;
+&lt;/body&gt;&lt;/html&gt;</pre></div>
+  </section>
+
+  <section class="sec">
+    <div class="kick">Before you import</div>
+    <h2>Checklist</h2>
+    <ul class="check">
+      <li><span class="box"></span><code>index.html</code> present (root, or one folder down)</li>
+      <li><span class="box"></span>Zero <code>https://</code> / CDN references — all local</li>
+      <li><span class="box"></span>No <code>fetch</code> / <code>import</code> — tags + inline only</li>
+      <li><span class="box"></span>Fills 1280×720</li>
+      <li><span class="box"></span>Has <code>#startBtn</code> or auto-starts</li>
+      <li><span class="box"></span>Under 200 MB</li>
+    </ul>
+  </section>
+
+  <section class="final">
+    <div class="kick">Ready</div>
+    <h2>Drop it in.</h2>
+    <p class="sub">In MEETAMASK, open <b>Add mask</b> in the gallery and pick your <code>.zip</code> or folder. It shows up as yours and goes live on your next call.</p>
+    <div class="cta">
+      <a class="btn btn-ink" href="/#download"><span class="mono">Download MEETAMASK</span></a>
+      <a class="btn btn-line" href="/gallery"><span class="mono">Browse masks</span></a>
+    </div>
+  </section>
+
+</main>
+
+<footer><div class="shell foot">
+  <a class="logo" href="/"><svg style="width:22px;height:22px"><use href="#mask"/></svg><span class="n" style="font-size:17px">MEETAMASK</span></a>
+  <div class="mono">© 2026 · a stage for your webcam</div>
+</div></footer>
+
+</body>
+</html>

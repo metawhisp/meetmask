@@ -59,6 +59,7 @@ struct StageView: View {
     @State private var activeTag = "All"
     @State private var paused = false
     @State private var importError: String?
+    @State private var showGuide = false
     @AppStorage("favoriteMaskIDs") private var favCSV = ""
 
     @StateObject private var engine = EngineFrameReceiver()
@@ -115,6 +116,7 @@ struct StageView: View {
             get: { importError != nil }, set: { if !$0 { importError = nil } })) {
             Button("OK", role: .cancel) { importError = nil }
         } message: { Text(importError ?? "") }
+        .sheet(isPresented: $showGuide) { MaskGuideView() }
     }
 
     // MARK: Header
@@ -267,6 +269,13 @@ struct StageView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) { ForEach(tags, id: \.self) { tagChip($0) } }
                 }
+
+                Button { showGuide = true } label: {
+                    Text("How to make a mask")
+                        .font(Brand.mono(10)).tracking(0.5).textCase(.uppercase).foregroundStyle(Brand.ink2)
+                        .padding(.horizontal, 11).padding(.vertical, 6)
+                        .overlay(Capsule().stroke(Brand.hair, lineWidth: 1))
+                }.buttonStyle(.plain).fixedSize()
             }
 
             ScrollView {
@@ -457,5 +466,78 @@ struct StageView: View {
 
     private static func fpsLabel(_ e: EngineFrameReceiver) -> String {
         e.isRunning ? "Live" : "Idle"   // fps shown only once actually measured
+    }
+}
+
+// MARK: - "How to make a mask" — in-app spec (mirrors meetamask.com/create + MASK-SPEC.md)
+
+private struct MaskGuideView: View {
+    @Environment(\.dismiss) private var dismiss
+    private enum Kind { case ok, no }
+
+    var body: some View {
+        ZStack {
+            Brand.stage.ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Bring your own").font(Brand.mono(9.5)).tracking(1.5).textCase(.uppercase).foregroundStyle(Brand.muted)
+                            Text("MAKE A MASK").font(Brand.disp(30)).foregroundStyle(Brand.ink)
+                        }
+                        Spacer()
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Brand.ink2)
+                                .padding(8).overlay(Circle().stroke(Brand.hair, lineWidth: 1))
+                        }.buttonStyle(.plain)
+                    }
+                    Text("A mask is a self-contained web page. Imported masks are other people’s code, so each one runs in a locked sandbox — no disk, no network, no windows. That’s what keeps a “cute cat mask” from stealing your files.")
+                        .font(Brand.mono(11.5)).foregroundStyle(Brand.ink2).lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true).padding(.top, 14)
+
+                    group("Accepted", [
+                        (.ok, "A .zip or a folder with index.html (root, or one level down)"),
+                        (.ok, "Fully self-contained — all JS, images and models inside"),
+                        (.ok, "≤ 200 MB · draws to fill 1280×720"),
+                    ])
+                    group("Won’t work — the sandbox blocks it", [
+                        (.no, "No network / CDN — bundle MediaPipe or Three.js locally"),
+                        (.no, "No fetch and no ES modules (import) — use tags + inline"),
+                        (.no, "No reading your files · no new windows · no audio"),
+                    ])
+                    group("You can use", [
+                        (.ok, "Canvas 2D + WebGL, requestAnimationFrame"),
+                        (.ok, "getUserMedia — we hand you the real camera"),
+                        (.ok, "Local files via <script src> / <img>; UMD builds; data: URIs"),
+                        (.ok, "A <button id=\"startBtn\"> — we auto-click it to start"),
+                    ])
+
+                    Text("Full spec — meetamask.com/create")
+                        .font(Brand.mono(10)).tracking(0.5).textCase(.uppercase).foregroundStyle(Brand.muted)
+                        .padding(.top, 24)
+                }
+                .padding(26)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(width: 560, height: 640)
+    }
+
+    @ViewBuilder private func group(_ title: String, _ rows: [(Kind, String)]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title).font(Brand.mono(10)).tracking(1).textCase(.uppercase).foregroundStyle(Brand.muted)
+                .padding(.top, 24).padding(.bottom, 2)
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(alignment: .top, spacing: 10) {
+                    Text(row.0 == .ok ? "✓" : "✕").font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(row.0 == .ok ? Brand.ink : Brand.live).frame(width: 14)
+                    Text(row.1).font(Brand.mono(11.5)).foregroundStyle(Brand.ink2).lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 9)
+                .overlay(Rectangle().fill(Brand.hair).frame(height: 1), alignment: .top)
+            }
+        }
     }
 }
