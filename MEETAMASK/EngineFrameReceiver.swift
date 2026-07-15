@@ -146,16 +146,29 @@ final class EngineFrameReceiver: ObservableObject {
         b.storeBytes(of: UInt64(0), toByteOffset: 0, as: UInt64.self)
     }
 
-    /// A mask URL is approved only if it is a file URL inside the app's bundled Masks
-    /// directory (the app-approved set). Rejects user-dropped / arbitrary paths.
+    /// A mask URL is approved if it lives inside the app's bundled Masks dir (trusted,
+    /// app-authored) OR the user's imported-masks dir (untrusted — run in the engine jail).
+    /// Rejects arbitrary paths. Symlinks are resolved so a link can't point outside either root.
     private func isApprovedMaskURL(_ url: URL) -> Bool {
-        guard url.isFileURL,
-              let root = Bundle.main.resourceURL?.appendingPathComponent("Masks", isDirectory: true)
-        else { return false }
-        // Resolve symlinks (not just lexical ./..) so a link under Masks/ can't point out.
-        let approved = root.resolvingSymlinksInPath().standardizedFileURL.path
-        let candidate = url.resolvingSymlinksInPath().standardizedFileURL.path
-        return candidate == approved || candidate.hasPrefix(approved + "/")
+        isURL(url, under: Self.bundleMasksDir) || isURL(url, under: MaskLibrary.userMasksDir)
+    }
+
+    /// True when the mask is USER-imported → the engine MUST run it sandboxed (`--untrusted`).
+    /// Path-derived, not a UI flag: a mask under userMasksDir can never accidentally run trusted.
+    private func isUntrustedMaskURL(_ url: URL) -> Bool {
+        isURL(url, under: MaskLibrary.userMasksDir) && !isURL(url, under: Self.bundleMasksDir)
+    }
+
+    private static var bundleMasksDir: URL? {
+        Bundle.main.resourceURL?.appendingPathComponent("Masks", isDirectory: true)
+    }
+
+    /// Is `url` the same as, or nested inside, `root` — after resolving symlinks on both sides?
+    private func isURL(_ url: URL, under root: URL?) -> Bool {
+        guard url.isFileURL, let root = root else { return false }
+        let base = root.resolvingSymlinksInPath().standardizedFileURL.path
+        let cand = url.resolvingSymlinksInPath().standardizedFileURL.path
+        return cand == base || cand.hasPrefix(base + "/")
     }
 
     private func launchEngine(maskURL: URL) {
@@ -165,7 +178,10 @@ final class EngineFrameReceiver: ObservableObject {
         p.executableURL = URL(fileURLWithPath: enginePath)
         // Pass as --key=value switches (NOT positional args) so Chromium never treats
         // the shm path or mask URL as a page to open / download.
-        p.arguments = ["--shm=\(shmPath)", "--mask=\(maskURL.absoluteString)"]
+        var args = ["--shm=\(shmPath)", "--mask=\(maskURL.absoluteString)"]
+        // User-imported masks are untrusted HTML → run them in the engine's FS + network jail.
+        if isUntrustedMaskURL(maskURL) { args.append("--untrusted") }
+        p.arguments = args
         do { try p.run() } catch {
             setStatus("Не удалось запустить движок: \(error.localizedDescription)")
             os_log("receiver: engine launch failed: %{public}@", log: log, type: .error, String(describing: error))

@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 // MEETAMASK — "The Stage". One dark screen: the user's live masked feed on the left,
 // the mask library on the right. Brand language matches meetamask.com (Times New Roman
@@ -57,6 +58,7 @@ struct StageView: View {
     @State private var search = ""
     @State private var activeTag = "All"
     @State private var paused = false
+    @State private var importError: String?
     @AppStorage("favoriteMaskIDs") private var favCSV = ""
 
     @StateObject private var engine = EngineFrameReceiver()
@@ -109,6 +111,10 @@ struct StageView: View {
                 engine.start(maskURL: m.indexURL)
             }
         }
+        .alert("Не удалось добавить маску", isPresented: Binding(
+            get: { importError != nil }, set: { if !$0 { importError = nil } })) {
+            Button("OK", role: .cancel) { importError = nil }
+        } message: { Text(importError ?? "") }
     }
 
     // MARK: Header
@@ -263,20 +269,12 @@ struct StageView: View {
                 }
             }
 
-            if filtered.isEmpty {
-                Spacer()
-                Text("No masks match — clear search or tags")
-                    .font(Brand.mono(11)).foregroundStyle(Brand.muted)
-                Spacer()
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
-                        ForEach(filtered) { card($0) }
-                        // plusCard returns as the entry to Customize (preset maker) — the site
-                        // has no upload today, so linking there was a dead end.
-                    }
-                    .padding(.bottom, 6)
+            ScrollView {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                    addCard   // always the first tile — the entry point to import your own mask
+                    ForEach(filtered) { card($0) }
                 }
+                .padding(.bottom, 6)
             }
         }
     }
@@ -301,13 +299,21 @@ struct StageView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(LinearGradient(colors: [.clear, Brand.stage.opacity(0.9)], startPoint: .top, endPoint: .bottom))
         }
-        .overlay(alignment: .topLeading) { if isSel { airBadge.padding(5) } }
+        .overlay(alignment: .topLeading) {
+            if isSel { airBadge.padding(5) }
+            else if !m.isBuiltIn { mineChip.padding(5) }   // user-imported → mark it "MINE"
+        }
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(isSel ? Brand.ink : Brand.hair, lineWidth: isSel ? 2 : 1))
         .overlay(alignment: .topTrailing) { favButton(m, size: 13).padding(6) }
         .contentShape(Rectangle())
         // Tap only updates selection — .onChange(of: selectedID) performs the engine swap.
         // (Starting here too made every click relaunch the engine twice.)
         .onTapGesture { selectedID = m.id }
+        .contextMenu {
+            if !m.isBuiltIn {
+                Button(role: .destructive) { removeUserMask(m) } label: { Label("Remove mask", systemImage: "trash") }
+            }
+        }
     }
 
     @ViewBuilder private var airBadge: some View {
@@ -319,6 +325,72 @@ struct StageView: View {
             }
             .padding(.horizontal, 6).padding(.vertical, 3)
             .background(Color.black.opacity(0.6)).clipShape(Capsule())
+        }
+    }
+
+    // MARK: Import your own mask
+
+    private var addCard: some View {
+        Button(action: importMask) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8).fill(Brand.card)
+                VStack(spacing: 6) {
+                    Image(systemName: "plus").font(.system(size: 20, weight: .light)).foregroundStyle(Brand.ink2)
+                    Text("Add mask").font(Brand.mono(9, .medium)).tracking(0.5).textCase(.uppercase).foregroundStyle(Brand.muted)
+                }
+            }
+            .aspectRatio(1, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .overlay(RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(Brand.hair, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+        }
+        .buttonStyle(.plain)
+        .help("Add your own mask (a folder or .zip containing index.html)")
+    }
+
+    private var mineChip: some View {
+        Text("MINE").font(Brand.mono(7.5, .semibold)).tracking(0.8).foregroundStyle(Brand.ink2)
+            .padding(.horizontal, 5).padding(.vertical, 2)
+            .background(Color.black.opacity(0.55)).clipShape(Capsule())
+    }
+
+    /// Pick a mask folder / .zip → import (validated + staged) → show it in the gallery and go live.
+    /// The imported HTML is untrusted; the engine runs it sandboxed (`--untrusted`), so it can't
+    /// read local files or reach the network.
+    private func importMask() {
+        let panel = NSOpenPanel()
+        panel.prompt = "Add"
+        panel.message = "Выбери папку маски или .zip (внутри должен быть index.html)"
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.allowedContentTypes = [.zip, .folder]
+        guard panel.runModal() == .OK, let src = panel.url else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let id = try MaskLibrary.importMask(from: src)
+                DispatchQueue.main.async {
+                    Thumb.cache.removeAll()
+                    masks = MaskLibrary.all()
+                    selectedID = id
+                    if engine.isRunning, !paused, let m = masks.first(where: { $0.id == id }) {
+                        engine.start(maskURL: m.indexURL)
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async { importError = error.localizedDescription }
+            }
+        }
+    }
+
+    private func removeUserMask(_ m: Mask) {
+        let wasSelected = selectedID == m.id
+        MaskLibrary.deleteUserMask(id: m.id)
+        Thumb.cache.removeValue(forKey: m.id)
+        masks = MaskLibrary.all()
+        if wasSelected {
+            selectedID = masks.first(where: { $0.id == "meetamask-studio" })?.id ?? masks.first?.id
+            if engine.isRunning, !paused, let sel = selected { engine.start(maskURL: sel.indexURL) }
         }
     }
 
