@@ -1,221 +1,391 @@
-/* MEETAMASK gallery FX — one unified 16-bit + ASCII animated style, one tile per preset.
-   Each mask maps to an animated "motif" (field over a grid) + a 16-bit palette. Tiles render
-   as live <canvas data-fx="slug">; only on-screen tiles animate (IntersectionObserver). */
+/* MEETAMASK gallery FX — one unified 16-bit style: a pixel-art FACE with each filter's
+   effect applied, so every tile shows what the mask does. Rendered into a small buffer and
+   upscaled nearest-neighbour (crisp pixels, never blurred). Only on-screen tiles animate. */
 (function () {
-  const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
-  const fract = (v) => v - Math.floor(v);
   const TAU = Math.PI * 2;
-  const N = 30, CX = (N - 1) / 2, CY = (N - 1) / 2;      // logical glyph grid (chunky 16-bit)
-  const RAMP = " .:-=+*ox#░▒▓█";
-  const hash = (x, y) => fract(Math.sin(x * 127.1 + y * 311.7) * 43758.5453);
-  const SEEDS = []; for (let i = 0; i < 22; i++) SEEDS.push([hash(i, 7) * N, hash(i * 1.3, 13) * N]);
+  const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+  const PW = 74, PH = 88, CX = 37;                 // small-buffer size + face centre x
+  const RAMP = " .:-=+*ox#%@";
+  const hash = (s) => { let h = 2166136261; s = String(s); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; };
+  const TMP = document.createElement('canvas'); TMP.width = PW; TMP.height = PH;
+  const TC = TMP.getContext('2d', { willReadFrequently: true });
 
-  // ---------- animated motifs: factory(params) -> field(gx,gy,t) in 0..1 ----------
-  const M = {
-    radial: (o = {}) => { const sp = o.sp ?? 1.6, rings = o.rings ?? 5, rad = o.rad ?? 0.55, amp = o.amp ?? 0.16, base = o.base ?? 1;
-      return (x, y, t) => { const d = Math.hypot(x - CX, y - CY) / (N * rad); return clamp((1 - d) * base + amp * Math.sin(t * sp - d * rings)); }; },
-    rings: (o = {}) => { const sp = o.sp ?? 1.2, n = o.n ?? 3;
-      return (x, y, t) => { const d = Math.hypot(x - CX, y - CY) / (N * 0.5); let v = 0.06; for (let i = 0; i < n; i++) { const r = fract(t * sp * 0.3 + i / n); v = Math.max(v, clamp(1 - Math.abs(d - r) / 0.1) * (1 - r)); } return v; }; },
-    flames: (o = {}) => { const sp = o.sp ?? 5, w = o.w ?? 0.45;
-      return (x, y, t) => { const base = Math.max(0, 1 - y / N), taper = Math.max(0, 1 - Math.abs(x - CX) / (N * w)), turb = 0.5 + 0.5 * Math.sin(x * 0.9 + t * sp + Math.sin(y * 0.5 - t * sp * 0.8) * 1.8); return base * taper * (0.45 + 0.75 * turb); }; },
-    spiral: (o = {}) => { const arms = o.arms ?? 2, tw = o.tw ?? 9, sp = o.sp ?? 3, dir = o.dir ?? 1;
-      return (x, y, t) => { const dx = x - CX, dy = y - CY, a = Math.atan2(dy, dx), r = Math.hypot(dx, dy) / (N * 0.5); return clamp((0.5 + 0.5 * Math.sin(a * arms + r * tw - t * sp * dir)) * (1 - r) + (1 - r) * 0.35); }; },
-    streaks: (o = {}) => { const sp = o.sp ?? 1.3, thr = o.thr ?? 0.5, rows = o.rows ?? 2, head = o.head ?? 0;
-      return (x, y, t) => { const c = hash(x, 0); if (c <= thr) return 0.04; const p = fract(y / N * rows + c * 5 + t * sp); let v = 0.2 + 0.8 * (1 - p); if (head) v *= (p > 0.85 ? 1 : 0.62); return v; }; },
-    scan: (o = {}) => { const sp = o.sp ?? 0.4, band = o.band ?? 0.14, dir = o.dir ?? 1;
-      return (x, y, t) => { const yl = fract(t * sp * dir); const d = Math.abs(y / N - yl); const grid = 0.1 + 0.1 * Math.sin(x * 1.2) * Math.sin(y * 0.6); return Math.max(clamp(grid), 1 - d / band); }; },
-    kaleido: (o = {}) => { const seg = o.seg ?? 6, sp = o.sp ?? 2;
-      return (x, y, t) => { const dx = x - CX, dy = y - CY, a = Math.atan2(dy, dx), r = Math.hypot(dx, dy) / (N * 0.55); return clamp(0.5 + 0.5 * Math.sin(r * 7 - t * sp) * Math.cos(a * seg + t * 0.6)); }; },
-    plasma: (o = {}) => { const sp = o.sp ?? 1, sc = o.sc ?? 0.4;
-      return (x, y, t) => 0.5 + 0.5 * (Math.sin(x * sc + t * sp) + Math.sin(y * sc * 1.2 - t * sp * 0.8) + Math.sin((x + y) * sc * 0.7 + t * sp * 1.3) + Math.sin(Math.hypot(x - CX, y - CY) * sc * 1.2 - t * sp)) / 4; },
-    glitch: (o = {}) => { const sp = o.sp ?? 3;
-      return (x, y, t) => { const row = Math.floor(y), tick = Math.floor(t * sp), j = (hash(row, tick) - 0.5) * 8, band = hash(row, tick * 0.5); const v = 0.4 + 0.5 * Math.sin((x + j) * 0.5 + row * 0.4 + t) + (band > 0.85 ? 0.4 : 0); return clamp(v * (0.55 + 0.6 * band)); }; },
-    blocks: (o = {}) => { const bs = o.bs ?? 3, sp = o.sp ?? 1, sc = o.sc ?? 0.5;
-      return (x, y, t) => { const bx = Math.floor(x / bs) * bs, by = Math.floor(y / bs) * bs; return clamp(0.5 + 0.5 * (Math.sin(bx * sc + t * sp) + Math.sin(by * sc - t * sp * 0.7) + Math.sin((bx + by) * sc * 0.6 + t * sp)) / 3 + 0.15); }; },
-    outline: (o = {}) => { const sp = o.sp ?? 1.5, rr = o.rr ?? 0.42, th = o.th ?? 0.1;
-      return (x, y, t) => { const d = Math.hypot(x - CX, y - CY) / N; const ring = rr + 0.06 * Math.sin(t * sp); const face = clamp(1 - Math.abs(d - ring) / th); const eyes = Math.max(0, 1 - Math.min(Math.hypot(x - (CX - 5), y - (CY - 3)), Math.hypot(x - (CX + 5), y - (CY - 3))) / 2.5) * 0.85; const mouth = Math.max(0, 1 - Math.abs(y - (CY + 6)) / 1.5) * Math.max(0, 1 - Math.abs(x - CX) / 5) * 0.7; return Math.max(face, eyes, mouth); }; },
-    mesh: (o = {}) => { const sp = o.sp ?? 1, g = o.g ?? 5;
-      return (x, y, t) => { const fx = Math.abs(fract(x / g + 0.03 * Math.sin(t * sp)) - 0.5), fy = Math.abs(fract(y / g) - 0.5), fd = Math.abs(fract((x + y) / g) - 0.5); const line = Math.max(1 - fx * 6, 1 - fy * 6, 1 - fd * 6); const d = Math.hypot(x - CX, y - CY) / (N * 0.55); return clamp(line * (1.2 - d * 0.45) + 0.05); }; },
-    dots: (o = {}) => { const sp = o.sp ?? 2; const P = []; for (let a = 0; a < TAU; a += TAU / 15) P.push([CX + Math.cos(a) * N * 0.3, CY + Math.sin(a) * N * 0.34]); P.push([CX - 5, CY - 3], [CX + 5, CY - 3], [CX - 6, CY - 8], [CX + 6, CY - 8], [CX, CY], [CX, CY + 3]); for (let i = -4; i <= 4; i += 2) P.push([CX + i, CY + 7]);
-      return (x, y, t) => { let v = 0.04; for (let i = 0; i < P.length; i++) { const pl = 0.6 + 0.4 * Math.sin(t * sp + i * 0.7); v = Math.max(v, Math.max(0, 1 - Math.hypot(x - P[i][0], y - P[i][1]) / 1.5) * pl); } return v; }; },
-    lines: (o = {}) => { const sp = o.sp ?? 1.6;
-      return (x, y, t) => { const p = 0.75 + 0.25 * Math.sin(t * sp); const eL = Math.max(0, 1 - Math.hypot((x - (CX - 5)) / 2.4, (y - (CY - 3)) / 0.9)); const eR = Math.max(0, 1 - Math.hypot((x - (CX + 5)) / 2.4, (y - (CY - 3)) / 0.9)); const mo = Math.max(0, 1 - Math.hypot((x - CX) / 5, (y - (CY + 6) + Math.abs(x - CX) * 0.06) / 0.8)); const jaw = clamp(1 - Math.abs(Math.hypot(x - CX, (y - CY) * 0.95) / N - 0.42) / 0.09) * 0.28; return Math.max(eL * p, eR * p, mo * p, jaw) + 0.03; }; },
-    hatch: (o = {}) => { const sp = o.sp ?? 1, g = o.g ?? 3.2;
-      return (x, y, t) => { const a = Math.sin((x + y) / g + t * sp * 0.3), b = Math.sin((x - y) / g - t * sp * 0.2); const v = Math.max(a, b) * 0.5 + 0.5; const d = Math.hypot(x - CX, y - CY) / (N * 0.55); return clamp((v > 0.62 ? v : 0.08) * (1.1 - d * 0.5)); }; },
-    beams: (o = {}) => { const sp = o.sp ?? 3;
-      return (x, y, t) => { let v = 0.05; const eyes = [[CX - 5, CY - 3, -1], [CX + 5, CY - 3, 1]]; for (const [ex, ey, dir] of eyes) { const dx = x - ex, dy = y - ey; if (dy < 0) continue; const line = dir * dy * 0.35; const off = Math.abs(dx - line); const beam = Math.max(0, 1 - off / (1.2 + dy * 0.12)) * Math.max(0, 1 - dy / N); const flick = 0.7 + 0.3 * Math.sin(t * sp * 3 + dy * 0.5); v = Math.max(v, beam * flick); const glow = Math.max(0, 1 - Math.hypot(dx, dy) / 3) * 0.8; v = Math.max(v, glow); } return v; }; },
-    particles: (o = {}) => { const n = o.n ?? 6, sp = o.sp ?? 1, rad = o.rad ?? 0.32, size = o.size ?? 3.2;
-      return (x, y, t) => { let v = 0.04; for (let i = 0; i < n; i++) { const ph = i * (TAU / n); const px = CX + Math.cos(t * sp + ph) * (N * rad) * (0.6 + 0.4 * Math.sin(t * 0.5 + i)); const py = CY + Math.sin(t * sp * 1.1 + ph * 1.3) * (N * rad); v = Math.max(v, Math.max(0, 1 - Math.hypot(x - px, y - py) / size)); } return v; }; },
-    shatter: (o = {}) => { const sp = o.sp ?? 1;
-      return (x, y, t) => { let d1 = 1e9, d2 = 1e9; for (const s of SEEDS) { const jx = s[0] + Math.sin(t * sp + s[1]) * 0.6, jy = s[1] + Math.cos(t * sp + s[0]) * 0.6; const d = (x - jx) ** 2 + (y - jy) ** 2; if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d; } const edge = Math.sqrt(d2) - Math.sqrt(d1); const crack = clamp(1 - edge / 1.6); const cell = 0.25 + 0.55 * hash(Math.round(x / 2), Math.round(y / 2)); return Math.max(crack, cell * 0.6); }; },
-    twinkle: (o = {}) => { const sp = o.sp ?? 2, dens = o.dens ?? 0.12;
-      return (x, y, t) => { const h = hash(x, y); if (h > 1 - dens) return clamp(0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * sp + h * 30))); return 0.05; }; },
-    eyes: (o = {}) => { const sp = o.sp ?? 1.2;
-      return (x, y, t) => { const ring = clamp(1 - Math.abs(Math.hypot(x - CX, y - CY) / N - 0.4) / 0.12) * 0.35; const e = Math.min(Math.hypot(x - (CX - 6), (y - CY) * 1.2), Math.hypot(x - (CX + 6), (y - CY) * 1.2)); const iris = clamp(1 - e / 4.5) * (0.75 + 0.25 * Math.sin(t * sp)); const pupil = clamp(1 - Math.min(Math.hypot(x - (CX - 6), y - CY), Math.hypot(x - (CX + 6), y - CY)) / 1.9); return Math.max(ring, iris, pupil); }; },
+  const ell = (c, x, y, rx, ry, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, TAU); c.fill(); };
+  const rect = (c, x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+
+  // ---------- face variants (variety across the 47 tiles) ----------
+  const SKINS = [
+    ['#7a4a30', '#9c6540', '#b87c52', '#cf9468'],
+    ['#8a5a3e', '#b3774f', '#c98a63', '#d59a72'],
+    ['#a06b45', '#c88a5c', '#e0a877', '#efc094'],
+    ['#5f3a26', '#7e4f34', '#9a6844', '#b3805a'],
+    ['#b07a52', '#d09a6c', '#e6b488', '#f2caa2'],
+  ];
+  const HAIRS = ['#221812', '#0f0f12', '#3a2718', '#5a3a1e', '#6a1f14', '#43301c'];
+  const SHIRTS = [['#242a33', '#2f3742'], ['#33242a', '#42303a'], ['#1f2b26', '#2c3a34'], ['#2a2733', '#37344a'], ['#332f24', '#423d2c']];
+  const STYLES = ['cap', 'round', 'flat', 'long', 'curly', 'bald'];
+
+  function variantFor(slug) {
+    const h = (n) => hash(slug + '#' + n);
+    const skin = SKINS[Math.floor(h(1) * SKINS.length) % SKINS.length];
+    return {
+      skin,
+      hair: HAIRS[Math.floor(h(2) * HAIRS.length) % HAIRS.length],
+      style: STYLES[Math.floor(h(3) * STYLES.length) % STYLES.length],
+      shirt: SHIRTS[Math.floor(h(4) * SHIRTS.length) % SHIRTS.length],
+      brow: '#2a1d15', eye: '#20323f', lip: '#8a4a3a', lip2: '#a85f4a',
+      beard: h(5) > 0.72, phase: h(6) * 6,
+    };
+  }
+
+  const HAIRFN = {
+    cap(c, col) { c.fillStyle = col; c.beginPath(); c.ellipse(CX, 30, 22, 18, 0, Math.PI, 0); c.fill(); rect(c, CX - 22, 18, 44, 10, col); ell(c, CX, 20, 22, 10, col); },
+    round(c, col) { ell(c, CX, 26, 23, 20, col); rect(c, CX - 23, 24, 46, 8, col); },
+    flat(c, col) { rect(c, CX - 22, 14, 44, 16, col); ell(c, CX, 30, 22, 8, col); },
+    long(c, col) { ell(c, CX, 28, 24, 22, col); rect(c, CX - 24, 26, 8, 40, col); rect(c, CX + 16, 26, 8, 40, col); },
+    curly(c, col) { for (let a = -0.2; a < Math.PI + 0.2; a += 0.5) ell(c, CX + Math.cos(a) * 22, 26 - Math.sin(a) * 18, 6, 6, col); ell(c, CX, 24, 20, 14, col); },
+    bald(c, col) { ell(c, CX, 22, 15, 8, 'rgba(255,255,255,.05)'); },
   };
 
-  const PAL = {
-    heat: ['#140626', '#5a1a7a', '#b52a5a', '#ff6a1a', '#ffcf3a', '#fff2c0'],
-    fire: ['#160402', '#6a1200', '#d63a08', '#ff7a1a', '#ffce3a', '#fff3c8'],
-    violet: ['#080a1e', '#2a1e6a', '#5a3ad0', '#7c6bff', '#4ad0ff', '#eaf6ff'],
-    ice: ['#0a0f18', '#12324a', '#1e6a8a', '#3aa0c8', '#9fe0ff', '#dff4ff'],
-    green: ['#020602', '#063a1a', '#0e7a34', '#28c85a', '#7fffa8', '#d9ffe6'],
-    rainbow: ['#140a20', '#8a5cff', '#ff5a8b', '#ffd23f', '#3ad0ff', '#eafff5'],
-    ink: ['#0b0b0d', '#2a2a2e', '#55555c', '#8f8c85', '#c7c7c7', '#f7f4ee'],
-    pink: ['#160610', '#4a0f2e', '#a11f5a', '#ff4f8b', '#ff9ec4', '#ffe3ef'],
-    amber: ['#0d0a06', '#3a2a08', '#8a6a10', '#e0a41f', '#ffd257', '#fff2c8'],
-    cyan: ['#04121a', '#0a3a4a', '#127a8a', '#22c8d8', '#7ffff0', '#d9fffa'],
-    red: ['#160404', '#5a0a0a', '#c81f1f', '#ff4a4a', '#ff9a7a', '#ffe0d0'],
-    toxic: ['#08160f', '#0f3a2a', '#1f7a4a', '#35d07f', '#a8ffd0', '#e6fff2'],
+  const blinkAt = (x) => (((x * 0.24) % 1) > 0.95 ? 1 : 0);
+
+  function drawFace(c, v, t, o = {}) {
+    if (!o.noBg) rect(c, 0, 0, PW, PH, o.bg || '#0c0b0a');
+    const s = v.skin, blink = o.noBlink ? 0 : (o.blink != null ? o.blink : blinkAt(t + v.phase));
+    ell(c, CX, PH + 8, 30, 20, v.shirt[0]); ell(c, CX, PH + 7, 26, 16, v.shirt[1]);   // shoulders
+    rect(c, CX - 6, 60, 12, 14, s[1]);                                                 // neck
+    ell(c, CX, 40, 20, 24, s[2]); ell(c, CX, 46, 18, 20, s[1]); ell(c, CX, 36, 19, 20, s[3]);
+    ell(c, CX - 20, 42, 3, 5, s[0]); ell(c, CX + 20, 42, 3, 5, s[0]);                  // ears
+    if (o.beardOver !== true && v.beard) { c.fillStyle = v.hair; c.beginPath(); c.ellipse(CX, 54, 15, 13, 0, 0.15, Math.PI - 0.15); c.fill(); rect(c, CX - 15, 44, 4, 10, v.hair); rect(c, CX + 11, 44, 4, 10, v.hair); }
+    (HAIRFN[o.style || v.style] || HAIRFN.cap)(c, v.hair);
+    rect(c, CX - 13, 33, 9, 2, v.brow); rect(c, CX + 4, 33, 9, 2, v.brow);             // brows
+    const eh = blink > 0.5 ? 1 : (o.eyesBig ? 6 : 4), ew = o.eyesBig ? 7 : 5;          // eyes
+    ell(c, CX - 8, 39, ew, eh, '#f2ede3'); ell(c, CX + 8, 39, ew, eh, '#f2ede3');
+    if (blink <= 0.5) { const pr = o.eyesBig ? 3 : 2.2; ell(c, CX - 8, 39, pr, pr + 0.4, v.eye); ell(c, CX + 8, 39, pr, pr + 0.4, v.eye); rect(c, CX - 9, 37, 1, 1, '#fff'); rect(c, CX + 7, 37, 1, 1, '#fff'); }
+    ell(c, CX, 47, 2.5, 4, s[0]); rect(c, CX - 1, 50, 3, 1, s[0]);                     // nose
+    if (o.mouthOpen) { ell(c, CX, 55, 6, 5, '#5a2320'); ell(c, CX, 53, 5, 2, '#3a1512'); }
+    else { rect(c, CX - 6, 55, 12, 2, v.lip); rect(c, CX - 5, 56, 10, 1, v.lip2); }
+  }
+  const baseImg = (v, t, o) => { drawFace(TC, v, t, o); return TC.getImageData(0, 0, PW, PH); };
+  const luma = (d, i) => (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) / 255;
+
+  // ---------- pixel helpers ----------
+  function mapPixels(c, v, t, fn, o) {                 // recolor: fn(l,r,g,b,x,y,t)->[r,g,b]
+    const img = baseImg(v, t, o), d = img.data;
+    for (let i = 0, p = 0; i < d.length; i += 4, p++) { const x = p % PW, y = (p / PW) | 0; const o2 = fn(luma(d, i), d[i], d[i + 1], d[i + 2], x, y, t); d[i] = o2[0]; d[i + 1] = o2[1]; d[i + 2] = o2[2]; }
+    c.putImageData(img, 0, 0);
+  }
+  function remap(c, v, t, coord, bg) {                 // sample base at coord(x,y,t)->[sx,sy]
+    const bd = baseImg(v, t).data, out = TC.createImageData(PW, PH), od = out.data;
+    for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) {
+      const s = coord(x, y, t); let sx = Math.round(s[0]), sy = Math.round(s[1]); const oi = (y * PW + x) * 4;
+      if (sx < 0 || sy < 0 || sx >= PW || sy >= PH) { const b = bg || [12, 11, 10]; od[oi] = b[0]; od[oi + 1] = b[1]; od[oi + 2] = b[2]; od[oi + 3] = 255; continue; }
+      const si = (sy * PW + sx) * 4; od[oi] = bd[si]; od[oi + 1] = bd[si + 1]; od[oi + 2] = bd[si + 2]; od[oi + 3] = 255;
+    }
+    c.putImageData(out, 0, 0);
+  }
+  const PAL_THERMAL = [[6, 4, 30], [40, 10, 90], [150, 20, 90], [230, 60, 20], [255, 170, 30], [255, 240, 180]];
+  const ramp6 = (pal, l) => { l = clamp(l, 0, 0.999); const s = l * (pal.length - 1), k = s | 0, f = s - k, a = pal[k], b = pal[Math.min(pal.length - 1, k + 1)]; return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]; };
+  const hsv = (h, s, v) => { h = (h % 1 + 1) % 1; const i = (h * 6) | 0, f = h * 6 - i, p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s); const r = [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]][i % 6]; return [r[0] * 255, r[1] * 255, r[2] * 255]; };
+
+  // ---------- effects: fn(c, t, v, ...args) leaves final image in small ctx `c` ----------
+  const E = {
+    beams(c, t, v) {
+      drawFace(c, v, t);
+      const eyes = [[CX - 8, 39, -1], [CX + 8, 39, 1]], flick = 0.6 + 0.4 * Math.sin(t * 22);
+      for (const [ex, ey, dir] of eyes) {
+        for (let d = 0; d < PH; d++) { const x = ex + dir * d * 0.42, y = ey + d * 0.92; if (y > PH) break; const w = 1.1 + d * 0.05;
+          c.fillStyle = 'rgba(255,60,50,' + (0.85 * flick * Math.max(0, 1 - d / PH)) + ')'; c.fillRect(Math.round(x - w), Math.round(y), Math.round(w * 2), 1);
+          c.fillStyle = 'rgba(255,220,180,' + (0.9 * flick * Math.max(0, 1 - d / PH)) + ')'; c.fillRect(Math.round(x), Math.round(y), 1, 1); }
+        c.fillStyle = 'rgba(255,120,90,.9)'; c.beginPath(); c.ellipse(ex, ey, 3 + flick, 3 + flick, 0, 0, TAU); c.fill();
+      }
+    },
+    fire(c, t, v) {
+      drawFace(c, v, t, { mouthOpen: true }); const mx = CX, my = 57;
+      const tongues = (col, sc, n, so) => { for (let i = 0; i < n; i++) { const a = -0.72 + (n > 1 ? i / (n - 1) : 0.5) * 1.44; const fl = 0.68 + 0.32 * Math.sin(t * 12 + i * 1.7 + so); const len = (15 + 7 * Math.sin(t * 9 + i * 2.1)) * sc * fl; const tx = mx + Math.sin(a) * len * 0.95, ty = my + Math.cos(a) * len + 5, bw = 3.4 * sc; c.fillStyle = col; c.beginPath(); c.moveTo(mx - bw, my); c.lineTo(mx + bw, my); c.lineTo(tx, ty); c.closePath(); c.fill(); } };
+      tongues('#c81f0a', 1.28, 7, 0); tongues('#ff6a1a', 1.0, 7, 1.1); tongues('#ffc23a', 0.66, 5, 2.3);
+      c.fillStyle = '#fff2c0'; c.beginPath(); c.ellipse(mx, my + 1, 3, 3, 0, 0, TAU); c.fill();
+      for (let i = 0; i < 12; i++) { const l = (i * 0.09 + t * 2) % 1; c.fillStyle = 'rgba(255,190,70,' + (1 - l) + ')'; c.fillRect(Math.round(mx + Math.sin(i * 3 + t * 5) * 11 * l), Math.round(my + l * 30), 1, 1); }
+    },
+    recolor(c, t, v, mode) {
+      const fns = {
+        thermal: (l) => ramp6(PAL_THERMAL, l * 1.05 + 0.02),
+        invert: (l, r, g, b) => [255 - r, 255 - g, 255 - b],
+        duotone: (l) => { const sh = [26, 20, 40], hi = [255, 110, 170]; return [sh[0] + (hi[0] - sh[0]) * l, sh[1] + (hi[1] - sh[1]) * l, sh[2] + (hi[2] - sh[2]) * l]; },
+        posterize: (l, r, g, b) => [Math.round(r / 72) * 72, Math.round(g / 72) * 72, Math.round(b / 72) * 72],
+        bleach: (l, r, g, b) => { const gy = l * 255, m = 0.55, cc = (x) => clamp(((x * (1 - m) + gy * m) - 128) * 1.5 + 128, 0, 255); return [cc(r), cc(g), cc(b)]; },
+        plasma: (l, r, g, b, x, y, tt) => { if (l < 0.12) return [10, 8, 16]; const h = (x * 0.02 + y * 0.015 + tt * 0.12 + Math.sin((x + y) * 0.1 + tt) * 0.1); return hsv(h, 0.7, 0.35 + l * 0.65); },
+        caustics: (l, r, g, b, x, y, tt) => { const c1 = Math.max(0, Math.sin(x * 0.4 + y * 0.2 + tt * 2) * Math.sin(y * 0.35 - tt * 1.5)); const base = [8 + l * 30, 40 + l * 120, 70 + l * 150]; const add = c1 * 90; return [base[0] + add * 0.6, base[1] + add, base[2] + add]; },
+      };
+      mapPixels(c, v, t, fns[mode] || fns.thermal);
+    },
+    halftone(c, t, v) {
+      const bd = baseImg(v, t).data; rect(c, 0, 0, PW, PH, '#12100c'); const g = 3;
+      for (let y = 1; y < PH; y += g) for (let x = 1; x < PW; x += g) { const l = luma(bd, (y * PW + x) * 4); const r = clamp(l, 0, 1) * (g * 0.62); if (r < 0.35) continue; c.fillStyle = l > 0.6 ? '#f4efe6' : '#c9c2b4'; c.beginPath(); c.ellipse(x, y, r, r, 0, 0, TAU); c.fill(); }
+    },
+    edges(c, t, v, col, hatchOn) {
+      const bd = baseImg(v, t).data; rect(c, 0, 0, PW, PH, hatchOn ? '#efe9dd' : '#05080a');
+      for (let y = 1; y < PH - 1; y++) for (let x = 1; x < PW - 1; x++) {
+        const L = (xx, yy) => luma(bd, ((yy) * PW + xx) * 4);
+        const gx = L(x + 1, y) - L(x - 1, y), gy = L(x, y + 1) - L(x, y - 1); const m = Math.hypot(gx, gy);
+        if (hatchOn) { if (m > 0.18) { c.fillStyle = '#1c1a17'; c.fillRect(x, y, 1, 1); } else if (L(x, y) < 0.5 && ((x + y) % 4 === (Math.floor(t * 2) % 2 ? 0 : 2))) { c.fillStyle = 'rgba(40,36,30,.7)'; c.fillRect(x, y, 1, 1); } }
+        else if (m > 0.16) { c.fillStyle = m > 0.34 ? '#d9ffe6' : col; c.fillRect(x, y, 1, 1); }
+      }
+    },
+    facelines(c, t, v) {
+      E.edges(c, t, v, '#ff4f8b', false);
+      const p = 0.7 + 0.3 * Math.sin(t * 3);
+      c.fillStyle = 'rgba(255,120,180,' + p + ')';
+      for (const [ex] of [[CX - 8], [CX + 8]]) c.fillRect(ex - 5, 39, 10, 1);
+      c.fillRect(CX - 6, 55, 12, 1);
+    },
+    ascii(c, t, v) {
+      const d = baseImg(v, t).data; rect(c, 0, 0, PW, PH, '#02120a'); c.font = '700 4px ui-monospace,monospace'; c.textBaseline = 'top'; const step = 2;
+      for (let y = 0; y < PH; y += step) for (let x = 0; x < PW; x += step) { let l = luma(d, (y * PW + x) * 4); l = Math.min(0.999, l + 0.06 * Math.sin(t * 6 + x * 0.5)); if (l < 0.12) continue; c.fillStyle = l > 0.6 ? '#c6ffd0' : (l > 0.35 ? '#38e06a' : '#0f7a34'); c.fillText(RAMP[Math.floor(l * RAMP.length)], x, y); }
+    },
+    pixelate(c, t, v, o) {
+      const bs = o.bs, shape = o.shape, bd = baseImg(v, t).data; rect(c, 0, 0, PW, PH, '#0c0b0a');
+      const dxg = o.drift ? Math.sin(t * 1.2) * 4 : 0, dyg = o.drift ? Math.cos(t * 1.1) * 3 : 0;
+      for (let by = 0; by < PH; by += bs) for (let bx = 0; bx < PW; bx += bs) {
+        const off = shape === 'hex' && ((by / bs) & 1) ? bs / 2 : 0;
+        let sx = clamp(Math.round(bx + bs / 2 + off + dxg), 0, PW - 1) | 0, sy = clamp(Math.round(by + bs / 2 + dyg), 0, PH - 1) | 0;
+        const i = (sy * PW + sx) * 4; c.fillStyle = 'rgb(' + bd[i] + ',' + bd[i + 1] + ',' + bd[i + 2] + ')';
+        if (shape === 'tri') { c.beginPath(); const up = ((bx / bs + by / bs) & 1); if (up) { c.moveTo(bx, by + bs); c.lineTo(bx + bs, by + bs); c.lineTo(bx + bs / 2, by); } else { c.moveTo(bx, by); c.lineTo(bx + bs, by); c.lineTo(bx + bs / 2, by + bs); } c.closePath(); c.fill(); }
+        else c.fillRect(bx + off, by, bs - 0.5, bs - 0.5);
+      }
+    },
+    glitch(c, t, v, mode) {
+      const img = baseImg(v, t), d = img.data, w = PW;
+      if (mode === 'rgb' || mode === 'crt') { const out = new Uint8ClampedArray(d); const dx = mode === 'crt' ? 1 : Math.round(2 + 1.5 * Math.sin(t * 6));
+        for (let y = 0; y < PH; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; const ri = (y * w + clamp(x - dx, 0, w - 1)) * 4, bi = (y * w + clamp(x + dx, 0, w - 1)) * 4; out[i] = d[ri]; out[i + 2] = d[bi + 2]; }
+        d.set(out); }
+      if (mode === 'vhs' || mode === 'rgb') { for (let y = 0; y < PH; y++) { if (Math.random() < (mode === 'vhs' ? 0.10 : 0.05)) { const sh = ((Math.random() * 8) | 0) - 4; for (let x = 0; x < w; x++) { const i = (y * w + x) * 4, si = (y * w + clamp(x + sh, 0, w - 1)) * 4; d[i] = d[si]; d[i + 1] = d[si + 1]; d[i + 2] = d[si + 2]; } } } }
+      c.putImageData(img, 0, 0);
+      if (mode === 'crt') { for (let y = 0; y < PH; y += 3) { c.fillStyle = 'rgba(0,0,0,.28)'; c.fillRect(0, y, PW, 1); } const g = c.createRadialGradient(CX, PH / 2, 20, CX, PH / 2, 52); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.5)'); c.fillStyle = g; c.fillRect(0, 0, PW, PH); }
+      if (mode === 'vhs') { c.fillStyle = 'rgba(120,255,200,.05)'; const yb = (t * 40) % PH; c.fillRect(0, yb, PW, 6); }
+    },
+    kaleido(c, t, v) {
+      remap(c, v, t, (x, y) => { let dx = x - CX, dy = y - 44, a = Math.atan2(dy, dx), r = Math.hypot(dx, dy); const seg = TAU / 6; a = Math.abs(((a % seg) + seg) % seg - seg / 2); a += t * 0.3; return [CX + Math.cos(a) * r, 44 + Math.sin(a) * r]; });
+    },
+    warp(c, t, v, mode) {
+      if (mode === 'fisheye') remap(c, v, t, (x, y) => { const dx = (x - CX) / 37, dy = (y - 40) / 44, r = Math.hypot(dx, dy), k = 0.55 + 0.08 * Math.sin(t * 2); const f = r > 0 ? Math.pow(r, 1 + k) / r : 1; return [CX + dx * f * 37, 40 + dy * f * 44]; });
+      else if (mode === 'polar') remap(c, v, t, (x, y) => { const dx = x - CX, dy = y - 40, a = Math.atan2(dy, dx) + (1 - Math.hypot(dx, dy) / 44) * 1.6 * Math.sin(t * 0.8 + 1), r = Math.hypot(dx, dy); return [CX + Math.cos(a) * r, 40 + Math.sin(a) * r]; });
+      else remap(c, v, t, (x, y) => { const zoom = 1.9 + 0.2 * Math.sin(t * 3); for (const ex of [CX - 8, CX + 8]) { const dx = x - ex, dy = y - 39; if (Math.hypot(dx, dy) < 9) return [ex + dx / zoom, 39 + dy / zoom]; } return [x, y]; });
+    },
+    feedback(c, t, v) {
+      rect(c, 0, 0, PW, PH, '#0c0b0a'); c.save();
+      for (let k = 4; k >= 0; k--) { const sc = 1 - k * 0.16, al = k === 0 ? 1 : 0.5 - k * 0.08; c.globalAlpha = Math.max(0, al); c.save(); c.translate(CX, 40); c.rotate(Math.sin(t + k) * 0.05); c.scale(sc, sc); c.translate(-CX, -40); drawFace(c, v, t, { noBg: true }); c.restore(); }
+      c.restore(); c.globalAlpha = 1;
+    },
+    echo(c, t, v, mode) {
+      rect(c, 0, 0, PW, PH, '#0c0b0a');
+      const ghosts = [[-1, '#4ad0ff'], [1, '#ff5a8b']];
+      if (mode === 'h') { for (const [dir, tint] of ghosts) { c.save(); c.globalAlpha = 0.5; c.translate(dir * (4 + 2 * Math.sin(t * 2)), 0); drawFace(c, v, t, { noBg: true }); c.fillStyle = tint; c.globalCompositeOperation = 'overlay'; c.fillRect(0, 0, PW, PH); c.restore(); } c.globalAlpha = 1; drawFace(c, v, t, { noBg: true }); }
+      else if (mode === 'bang') { const sh = Math.sin(t * 22) * 4; c.save(); c.globalAlpha = 0.45; drawFace(c, v, t, { noBg: true, style: 'curly' }); c.restore(); c.save(); c.translate(0, sh); drawFace(c, v, t, { noBg: true, mouthOpen: true, style: 'curly' }); c.restore(); c.globalAlpha = 1; for (let i = 0; i < 8; i++) { const x = (hash('b' + i) * PW) | 0; c.fillStyle = i % 2 ? 'rgba(255,80,180,.5)' : 'rgba(80,200,255,.5)'; if (Math.sin(t * 10 + i) > 0) c.fillRect(x, 0, 1, PH); } }
+      else { const poses = ['cap', 'round', 'flat']; const k = Math.floor(t * 1.5) % 3; for (let g = 2; g >= 0; g--) { c.globalAlpha = g === 0 ? 1 : 0.3; c.save(); c.translate(Math.sin((k - g) * 1.2) * 6, 0); c.rotate((k - 1) * 0.08); drawFace(c, v, t, { noBg: true, style: poses[(k + g) % 3], mouthOpen: k === 2 }); c.restore(); } c.globalAlpha = 1; }
+    },
+    snow(c, t, v) {
+      drawFace(c, v, t);
+      c.fillStyle = '#eef7ff'; ell(c, CX, 18, 20, 7, '#eef7ff'); rect(c, CX - 30, 68, 60, 4, '#e6f1ff');   // pile on head + shoulders
+      ell(c, CX - 20, 70, 12, 5, '#eef7ff'); ell(c, CX + 20, 70, 12, 5, '#eef7ff');
+      for (let i = 0; i < 40; i++) { const sx = hash('sx' + i) * PW, sp = 8 + hash('sp' + i) * 20; const y = (hash('sy' + i) * PH + t * sp) % PH; const x = sx + Math.sin(t + i) * 3; const s = hash('ss' + i) > 0.6 ? 2 : 1; c.fillStyle = 'rgba(255,255,255,.9)'; c.fillRect(Math.round(x), Math.round(y), s, s); }
+    },
+    rain(c, t, v) {
+      drawFace(c, v, t);
+      for (let i = 0; i < 46; i++) { const x = hash('rx' + i) * PW, sp = 40 + hash('rs' + i) * 60, len = 5 + hash('rl' + i) * 8; const y = (hash('ry' + i) * PH + t * sp) % (PH + len) - len; c.fillStyle = 'rgba(150,210,255,' + (0.35 + hash('ra' + i) * 0.4) + ')'; c.fillRect(Math.round(x), Math.round(y), 1, len); }
+    },
+    drip(c, t, v) {
+      drawFace(c, v, t, { mouthOpen: (t % 4) > 3.4 });
+      const sag = 1 + Math.sin(t * 1.5);
+      for (const [ex, col] of [[CX - 8, v.eye], [CX + 8, v.eye], [CX, '#8a4a3a']]) { const len = 6 + sag * 5 + (ex === CX ? 4 : 0); c.fillStyle = col; c.fillRect(Math.round(ex - 1), ex === CX ? 56 : 41, 2, len); c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(Math.round(ex - 1), (ex === CX ? 56 : 41) + len, 2, 2); }
+    },
+    icecream(c, t, v) {
+      drawFace(c, v, t, { style: 'bald' });
+      const bob = Math.sin(t * 2) * 1;
+      c.fillStyle = '#d9a441'; c.beginPath(); c.moveTo(CX - 10, 20); c.lineTo(CX + 10, 20); c.lineTo(CX, 34); c.closePath(); c.fill();   // wafer under
+      ell(c, CX, 13 + bob, 12, 9, '#f6d7e2'); ell(c, CX - 5, 10 + bob, 7, 6, '#ffe9f0'); ell(c, CX + 5, 11 + bob, 6, 5, '#f2c1d4');       // scoops
+      ell(c, CX, 6 + bob, 2, 2, '#c0304a');
+      for (const dx of [-8, 4]) { const dl = 4 + 3 * Math.sin(t * 2 + dx); c.fillStyle = '#f6d7e2'; c.fillRect(CX + dx, 20, 2, dl); }
+    },
+    mesh(c, t, v) {
+      drawFace(c, v, t); c.globalAlpha = 0.85;
+      const pts = []; for (let a = 0; a < TAU; a += TAU / 12) pts.push([CX + Math.cos(a) * 19, 40 + Math.sin(a) * 23]); pts.push([CX, 30], [CX - 8, 39], [CX + 8, 39], [CX, 47], [CX, 55], [CX - 10, 44], [CX + 10, 44]);
+      c.strokeStyle = '#22c8d8'; c.lineWidth = 0.5; c.beginPath();
+      for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) { const dx = pts[i][0] - pts[j][0], dy = pts[i][1] - pts[j][1]; if (dx * dx + dy * dy < 130) { c.moveTo(pts[i][0], pts[i][1]); c.lineTo(pts[j][0], pts[j][1]); } }
+      c.stroke(); c.fillStyle = '#7ffff0'; for (const p of pts) c.fillRect(Math.round(p[0]), Math.round(p[1]), 1, 1); c.globalAlpha = 1;
+    },
+    dots(c, t, v) {
+      drawFace(c, v, t); const p = 0.6 + 0.4 * Math.sin(t * 3);
+      c.fillStyle = 'rgba(120,255,240,' + p + ')';
+      for (let a = 0; a < TAU; a += TAU / 22) c.fillRect(Math.round(CX + Math.cos(a) * 19), Math.round(40 + Math.sin(a) * 23), 1, 1);
+      for (let a = 0; a < TAU; a += TAU / 10) { c.fillRect(Math.round(CX - 8 + Math.cos(a) * 3.2), Math.round(39 + Math.sin(a) * 2), 1, 1); c.fillRect(Math.round(CX + 8 + Math.cos(a) * 3.2), Math.round(39 + Math.sin(a) * 2), 1, 1); }
+      for (let x = -6; x <= 6; x += 2) c.fillRect(CX + x, 55, 1, 1);
+      for (let y = 42; y <= 50; y += 2) c.fillRect(CX, y, 1, 1);
+    },
+    fill(c, t, v) {
+      const p = 0.5 + 0.5 * Math.sin(t * 2); const col = hsv(0.5 + 0.1 * Math.sin(t), 0.9, 1);
+      drawFace(c, v, t); c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.4 + p * 0.4;
+      c.fillStyle = 'rgb(' + (col[0] | 0) + ',' + (col[1] | 0) + ',' + (col[2] | 0) + ')';
+      c.beginPath(); c.ellipse(CX, 40, 20, 24, 0, 0, TAU); c.fill(); c.restore();
+      c.strokeStyle = 'rgba(' + (col[0] | 0) + ',' + (col[1] | 0) + ',' + (col[2] | 0) + ',.9)'; c.lineWidth = 1.4; c.beginPath(); c.ellipse(CX, 40, 20, 24, 0, 0, TAU); c.stroke();
+    },
+    stare(c, t, v) {
+      drawFace(c, v, t, { eyesBig: true, noBlink: true });
+      const g = 0.4 + 0.4 * Math.sin(t * 4); c.strokeStyle = 'rgba(120,220,255,' + g + ')'; c.lineWidth = 0.6;
+      for (const ex of [CX - 8, CX + 8]) { c.beginPath(); c.ellipse(ex, 39, 7 + g, 6 + g, 0, 0, TAU); c.stroke(); }
+    },
+    glasses(c, t, v) {
+      const drop = Math.min(1, (t % 3) / 0.7); drawFace(c, v, t); const gy = 10 + drop * 28;
+      rect(c, CX - 16, gy, 32, 7, '#0a0a0c'); rect(c, CX - 16, gy, 32, 2, '#26262c'); rect(c, CX - 2, gy + 1, 4, 5, '#0a0a0c');
+      ell(c, CX - 8, gy + 3, 6, 3, '#111'); ell(c, CX + 8, gy + 3, 6, 3, '#111');
+      const sh = (t * 0.6) % 1; c.fillStyle = 'rgba(180,220,255,.5)'; c.fillRect(CX - 16 + sh * 32, gy, 2, 7);
+      if (drop >= 1) { const s = 0.5 + 0.5 * Math.sin(t * 8); c.fillStyle = 'rgba(255,255,255,' + s + ')'; c.fillRect(CX + 11, gy - 2, 2, 2); c.fillRect(CX + 12, gy - 3, 1, 4); c.fillRect(CX + 10, gy - 1, 4, 1); }
+    },
+    paw(c, t, v) {
+      drawFace(c, v, t); const ph = (t * 0.85) % 1; const px = PW + 12 - ph * (PW + 34), py = 32 + ph * 22;
+      ell(c, px, py, 10, 8, '#e08a2e'); ell(c, px - 1, py - 2, 8, 6, '#f0a94e');
+      for (let i = 0; i < 4; i++) { const a = -0.9 + i * 0.6, tx = px - 9 + Math.cos(a) * 3, ty = py - 8 + i * 4; ell(c, tx, ty, 2.4, 2, '#c9701f'); c.fillStyle = '#fff'; c.fillRect(Math.round(tx - 6), Math.round(ty), 3, 1); }
+      ell(c, px + 2, py + 2, 3, 2.4, '#7a3f12');
+      if (ph > 0.32) { const a = Math.max(0, 1 - (ph - 0.32) / 0.62); for (let s = 0; s < 3; s++) { c.fillStyle = 'rgba(255,60,60,' + a + ')'; for (let d = 0; d < 34; d++) c.fillRect(Math.round(CX - 12 + s * 11 + d * 0.18), 28 + d, (Math.sin(d * 3 + s) > 0 ? 1 : 2), 1); c.fillStyle = 'rgba(255,190,190,' + a + ')'; c.fillRect(Math.round(CX - 12 + s * 11), 28, 1, 32); } }
+    },
+    sparkles(c, t, v, mode) {
+      drawFace(c, v, t);
+      if (mode === 'paint') { const cols = ['#ff5a8b', '#ffd23f', '#3ad0ff', '#7bed7b']; for (let s = 0; s < 4; s++) { c.strokeStyle = cols[s]; c.lineWidth = 1.6; c.beginPath(); for (let k = 0; k < 20; k++) { const th = t * 1.2 + s * 1.6; const x = CX + Math.cos(th + k * 0.3) * (8 + k) * 0.9; const y = 40 + Math.sin(th * 1.3 + k * 0.4) * (6 + k * 0.6); k === 0 ? c.moveTo(x, y) : c.lineTo(x, y); } c.stroke(); } }
+      else { const cols = ['#ffd23f', '#ff5a8b', '#8a5cff', '#4ad0ff', '#7bed7b', '#fff']; for (let i = 0; i < 16; i++) { const a = i / 16 * TAU + t * 0.5; const rr = 16 + 8 * Math.sin(t * 1.5 + i); const x = CX + Math.cos(a) * rr, y = 40 + Math.sin(a) * rr * 1.1; const tw = 0.5 + 0.5 * Math.sin(t * 6 + i * 1.7); if (tw < 0.3) continue; c.fillStyle = cols[i % cols.length]; c.fillRect(Math.round(x), Math.round(y - 1), 1, 3); c.fillRect(Math.round(x - 1), Math.round(y), 3, 1); } }
+    },
+    aura(c, t, v) {
+      const hue = (t * 0.1) % 1; rect(c, 0, 0, PW, PH, '#0c0b0a');
+      for (let k = 3; k >= 0; k--) { const rr = 16 + k * 7 + (t * 8) % 7; const col = hsv(hue + k * 0.08, 0.8, 1); c.strokeStyle = 'rgba(' + (col[0] | 0) + ',' + (col[1] | 0) + ',' + (col[2] | 0) + ',' + (0.5 - k * 0.1) + ')'; c.lineWidth = 1.5; c.beginPath(); c.ellipse(CX, 42, rr, rr * 1.15, 0, 0, TAU); c.stroke(); }
+      drawFace(c, v, t, { noBg: true });
+      const yb = (t * 30) % PH; c.fillStyle = 'rgba(180,255,255,.35)'; c.fillRect(0, yb, PW, 2);
+    },
+    bloom(c, t, v) {
+      drawFace(c, v, t); c.save(); c.globalCompositeOperation = 'lighter';
+      const p = 0.6 + 0.4 * Math.sin(t * 2.5);
+      for (const [x, y, col] of [[CX - 8, 39, '#4ad0ff'], [CX + 8, 39, '#ff5a8b'], [CX, 55, '#ffd23f']]) { const g = c.createRadialGradient(x, y, 0, x, y, 9 * p + 4); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.globalAlpha = 0.7; c.fillRect(x - 12, y - 12, 24, 24); }
+      c.restore(); c.globalAlpha = 1;
+      c.strokeStyle = 'rgba(120,220,255,' + (0.4 + p * 0.4) + ')'; c.lineWidth = 1; c.beginPath(); c.ellipse(CX, 40, 21, 25, 0, 0, TAU); c.stroke();
+    },
+    portal(c, t, v) {
+      const im = TC.createImageData(PW, PH), d = im.data;    // swirling void behind the face
+      for (let y = 0, i = 0; y < PH; y++) for (let x = 0; x < PW; x++, i += 4) { const dx = x - CX, dy = y - 40, a = Math.atan2(dy, dx), r = Math.hypot(dx, dy); const sw = 0.5 + 0.5 * Math.sin(a * 3 + r * 0.45 - t * 4); const col = hsv(0.72 + sw * 0.12, 0.85, clamp(sw * (0.15 + r / 55), 0, 1)); d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; }
+      c.putImageData(im, 0, 0);
+      c.save(); c.translate(CX, 40); const s = 0.82 + 0.04 * Math.sin(t * 2); c.scale(s, s); c.translate(-CX, -40); drawFace(c, v, t, { noBg: true }); c.restore();
+    },
+    shatter(c, t, v, col) {
+      drawFace(c, v, t);
+      const seeds = []; for (let i = 0; i < 14; i++) seeds.push([hash('vx' + i) * PW, hash('vy' + i) * PH]);
+      c.strokeStyle = col; c.lineWidth = 0.6; c.globalAlpha = 0.9;
+      for (let y = 2; y < PH; y += 2) for (let x = 2; x < PW; x += 2) { let d1 = 1e9, d2 = 1e9; for (const s of seeds) { const jx = s[0] + Math.sin(t + s[1]) * 1.2, jy = s[1] + Math.cos(t + s[0]) * 1.2; const dd = (x - jx) ** 2 + (y - jy) ** 2; if (dd < d1) { d2 = d1; d1 = dd; } else if (dd < d2) d2 = dd; } if (Math.sqrt(d2) - Math.sqrt(d1) < 1.4) { c.fillStyle = col; c.fillRect(x, y, 1, 1); } }
+      c.globalAlpha = 1; c.fillStyle = 'rgba(255,255,255,.5)'; for (const s of seeds) c.fillRect(Math.round(s[0]), Math.round(s[1]), 1, 1);
+    },
+    scanreveal(c, t, v) {
+      const yl = (t * 26) % PH; const bd = baseImg(v, t).data; const im = TC.createImageData(PW, PH), d = im.data;
+      for (let y = 0, i = 0; y < PH; y++) for (let x = 0; x < PW; x++, i += 4) { const above = y < yl; if (above) { const th = ramp6(PAL_THERMAL, luma(bd, i)); d[i] = th[0]; d[i + 1] = th[1]; d[i + 2] = th[2]; } else { d[i] = bd[i]; d[i + 1] = bd[i + 1]; d[i + 2] = bd[i + 2]; } d[i + 3] = 255; }
+      c.putImageData(im, 0, 0); c.fillStyle = 'rgba(120,255,240,.9)'; c.fillRect(0, Math.round(yl), PW, 1); c.fillStyle = 'rgba(120,255,240,.25)'; c.fillRect(0, Math.round(yl) - 2, PW, 4);
+    },
   };
 
-  // ---------- registry: every mask slug -> {f: field, pal} ----------
+  // ---------- registry: slug -> [effectName, ...args] ----------
   const FX = {
-    // HAND
-    catattack: { f: M.particles({ n: 5, sp: 2.2, size: 3.6 }), pal: PAL.amber },
-    realitytear: { f: M.shatter({ sp: 1.4 }), pal: PAL.violet },
-    gesturespells: { f: M.particles({ n: 6, sp: 1.4, rad: 0.36 }), pal: PAL.rainbow },
-    portalpull: { f: M.spiral({ sp: 3 }), pal: PAL.violet },
-    fingerpaint: { f: M.particles({ n: 4, sp: 1.1, size: 4.2 }), pal: PAL.rainbow },
-    // FACE
-    snowpile: { f: M.streaks({ sp: 0.5, thr: 0.35, rows: 1.4 }), pal: PAL.ice },
-    facegravity: { f: M.streaks({ sp: 0.7, thr: 0.2, rows: 1.6 }), pal: PAL.violet },
-    headbang: { f: M.flames({ sp: 7, w: 0.5 }), pal: PAL.amber },
-    aurascan: { f: M.rings({ sp: 1.4 }), pal: PAL.cyan },
-    stareoff: { f: M.eyes({ sp: 1 }), pal: PAL.cyan },
-    posestages: { f: M.scan({ sp: 0.35, band: 0.16 }), pal: PAL.rainbow },
-    timeecho: { f: M.rings({ sp: 1.1, n: 4 }), pal: PAL.violet },
-    glasses: { f: M.glitch({ sp: 2 }), pal: PAL.cyan },
-    icecream: { f: M.streaks({ sp: 0.6, thr: 0.4, rows: 1.3 }), pal: PAL.pink },
-    mouthfire: { f: M.flames({ sp: 6 }), pal: PAL.fire },
-    facemask: { f: M.blocks({ bs: 4, sp: 1 }), pal: PAL.violet },
-    eyelasers: { f: M.beams({ sp: 3 }), pal: PAL.red },
-    facedots: { f: M.dots({ sp: 2 }), pal: PAL.cyan },
-    facemesh: { f: M.mesh({ sp: 1, g: 5 }), pal: PAL.cyan },
-    facefill: { f: M.radial({ sp: 2, rings: 4 }), pal: PAL.pink },
-    facelines: { f: M.lines({ sp: 1.6 }), pal: PAL.pink },
-    eyezoom: { f: M.radial({ sp: 2.4, rings: 6, rad: 0.4 }), pal: PAL.violet },
-    // PURE
-    asciicam: { f: M.streaks({ sp: 1.2, thr: 0.45, rows: 2, head: 1 }), pal: PAL.green },
-    pixelwarp: { f: M.plasma({ sp: 1.4, sc: 0.5 }), pal: PAL.rainbow },
-    thermal: { f: M.radial({ sp: 1.6, rings: 5 }), pal: PAL.heat },
-    halftone: { f: M.radial({ sp: 0.8, rings: 2, amp: 0.05 }), pal: PAL.ink },
-    sobel: { f: M.outline({ sp: 1.4 }), pal: PAL.green },
-    invert: { f: M.glitch({ sp: 2.4 }), pal: PAL.ink },
-    mosaic: { f: M.blocks({ bs: 4, sp: 1.2 }), pal: PAL.rainbow },
-    kaleidoscope: { f: M.kaleido({ sp: 2 }), pal: PAL.rainbow },
-    vhs: { f: M.glitch({ sp: 3 }), pal: PAL.amber },
-    duotone: { f: M.plasma({ sp: 1, sc: 0.35 }), pal: PAL.pink },
-    posterize: { f: M.plasma({ sp: 0.9, sc: 0.4 }), pal: PAL.amber },
-    caustics: { f: M.plasma({ sp: 1.2, sc: 0.45 }), pal: PAL.ice },
-    fisheye: { f: M.radial({ sp: 1.4, rings: 7, rad: 0.42 }), pal: PAL.cyan },
-    bleach: { f: M.plasma({ sp: 0.8, sc: 0.35 }), pal: PAL.ink },
-    hexpixel: { f: M.blocks({ bs: 3, sp: 1 }), pal: PAL.green },
-    polar: { f: M.spiral({ arms: 1, tw: 6, sp: 2.5 }), pal: PAL.violet },
-    linerain: { f: M.streaks({ sp: 1.4, thr: 0.5, rows: 2 }), pal: PAL.ice },
-    crosshatch: { f: M.hatch({ sp: 1 }), pal: PAL.ink },
-    plasma: { f: M.plasma({ sp: 1.3, sc: 0.4 }), pal: PAL.rainbow },
-    bloom: { f: M.radial({ sp: 2, rings: 3, amp: 0.2 }), pal: PAL.pink },
-    // EXPERIMENTAL
-    scan: { f: M.scan({ sp: 0.4, band: 0.12 }), pal: PAL.cyan },
-    pixeldrift: { f: M.plasma({ sp: 1.1, sc: 0.5 }), pal: PAL.violet },
-    shards: { f: M.shatter({ sp: 1 }), pal: PAL.toxic },
-    crt: { f: M.glitch({ sp: 2.6 }), pal: PAL.green },
-    feedback: { f: M.spiral({ arms: 3, tw: 11, sp: 2, dir: -1 }), pal: PAL.violet },
+    eyelasers: ['beams'], mouthfire: ['fire'],
+    thermal: ['recolor', 'thermal'], invert: ['recolor', 'invert'], duotone: ['recolor', 'duotone'], posterize: ['recolor', 'posterize'], bleach: ['recolor', 'bleach'], plasma: ['recolor', 'plasma'], caustics: ['recolor', 'caustics'],
+    halftone: ['halftone'], sobel: ['edges', '#28c85a', false], crosshatch: ['edges', '#e8e4da', true], facelines: ['facelines'], asciicam: ['ascii'],
+    mosaic: ['pixelate', { bs: 6, shape: 'sq' }], hexpixel: ['pixelate', { bs: 6, shape: 'hex' }], facemask: ['pixelate', { bs: 9, shape: 'tri' }], pixeldrift: ['pixelate', { bs: 6, shape: 'sq', drift: true }],
+    pixelwarp: ['glitch', 'rgb'], vhs: ['glitch', 'vhs'], crt: ['glitch', 'crt'],
+    kaleidoscope: ['kaleido'], fisheye: ['warp', 'fisheye'], polar: ['warp', 'polar'], eyezoom: ['warp', 'eyezoom'], feedback: ['feedback'],
+    timeecho: ['echo', 'h'], posestages: ['echo', 'pose'], headbang: ['echo', 'bang'],
+    snowpile: ['snow'], linerain: ['rain'], facegravity: ['drip', 'melt'], icecream: ['icecream'],
+    facemesh: ['mesh'], facedots: ['dots'], facefill: ['fill'], stareoff: ['stare'], glasses: ['glasses'], catattack: ['paw'],
+    gesturespells: ['sparkles', 'spell'], fingerpaint: ['sparkles', 'paint'], aurascan: ['aura'], bloom: ['bloom'],
+    portalpull: ['portal'], realitytear: ['shatter', '#7c6bff'], shards: ['shatter', '#35d07f'], scan: ['scanreveal'],
   };
 
-  // ---------- auto-generator: any NEW filter gets a matching tile from its name/keywords ----------
-  // Ordered keyword -> (motif, palette). First match wins; unmatched -> plasma/rainbow default.
-  // Keep in sync with tools/gen-fx.mjs (which pre-bakes tuned entries for review).
+  // ---------- auto: new filters get a matching effect from name/keywords (keep gen-fx.mjs in sync) ----------
   const HINTS = [
-    [/fire|flame|burn|lava|ember|torch/, () => M.flames({ sp: 6 }), 'fire'],
-    [/laser|beam|ray/, () => M.beams({ sp: 3 }), 'red'],
-    [/portal|void|vortex|wormhole|spiral|swirl|polar|feedback|twist/, () => M.spiral({ sp: 3 }), 'violet'],
-    [/eye|stare|gaze|blink|pupil/, () => M.eyes({ sp: 1.2 }), 'cyan'],
-    [/thermal|heat|infrared|warm/, () => M.radial({ sp: 1.6, rings: 5 }), 'heat'],
-    [/echo|ripple|sonar|expand|zoom/, () => M.rings({ sp: 1.2 }), 'violet'],
-    [/aura|glow|bloom|halo|neon|pulse|fill/, () => M.radial({ sp: 2, rings: 3, amp: 0.2 }), 'pink'],
-    [/matrix|ascii|code|terminal|glyph|type|char/, () => M.streaks({ sp: 1.2, thr: 0.45, rows: 2, head: 1 }), 'green'],
-    [/rain|drip|snow|fall|tears|melt|gravity|ice.?cream/, () => M.streaks({ sp: 1, thr: 0.4, rows: 1.6 }), 'ice'],
-    [/glitch|vhs|crt|analog|tape|\btv\b|scanline|invert|corrupt|noise/, () => M.glitch({ sp: 2.8 }), 'amber'],
-    [/kaleid|mandala|symmetry|mirror/, () => M.kaleido({ sp: 2 }), 'rainbow'],
-    [/pixel|mosaic|block|hex|voxel|low.?poly/, () => M.blocks({ bs: 3, sp: 1.1 }), 'rainbow'],
-    [/wire|mesh/, () => M.mesh({ sp: 1 }), 'cyan'],
-    [/dot|landmark|point|stipple/, () => M.dots({ sp: 2 }), 'cyan'],
-    [/hatch|pencil|sketch|cross/, () => M.hatch({ sp: 1 }), 'ink'],
-    [/edge|sobel|outline|contour|line/, () => M.outline({ sp: 1.4 }), 'green'],
-    [/shard|shatter|tear|crack|break|split|dimension|glass/, () => M.shatter({ sp: 1 }), 'toxic'],
-    [/scan|reveal|x.?ray|slice/, () => M.scan({ sp: 0.4 }), 'cyan'],
-    [/spark|magic|spell|glitter|star|paint|confetti|gesture/, () => M.particles({ n: 6, sp: 1.4 }), 'rainbow'],
-    [/cat|claw|paw|swipe|hit|punch|attack|slap/, () => M.particles({ n: 5, sp: 2.2, size: 3.6 }), 'amber'],
-    [/halftone|dotscreen|newspaper|print/, () => M.radial({ sp: 0.8, rings: 2, amp: 0.05 }), 'ink'],
-    [/plasma|caustic|liquid|wave|warp|drift|flow|psych|trip/, () => M.plasma({ sp: 1.3, sc: 0.4 }), 'rainbow'],
-    [/duotone|posterize|bleach|grade|tone|color/, () => M.plasma({ sp: 1, sc: 0.35 }), 'pink'],
-    [/headbang|concert|energy|shake|beat/, () => M.flames({ sp: 7, w: 0.5 }), 'amber'],
-    [/face|head|mesh/, () => M.outline({ sp: 1.3 }), 'cyan'],
+    [/laser|beam|ray|gaze/, ['beams']],
+    [/fire|flame|burn|breath|dragon|lava/, ['fire']],
+    [/thermal|heat|infrared/, ['recolor', 'thermal']],
+    [/invert|negative/, ['recolor', 'invert']],
+    [/duotone/, ['recolor', 'duotone']],
+    [/poster/, ['recolor', 'posterize']],
+    [/bleach|bypass|wash/, ['recolor', 'bleach']],
+    [/plasma|psych|rainbow|cycle/, ['recolor', 'plasma']],
+    [/caustic|underwater|water|aqua/, ['recolor', 'caustics']],
+    [/halftone|newspaper|dotscreen|print/, ['halftone']],
+    [/sobel|edge|contour/, ['edges', '#28c85a', false]],
+    [/hatch|pencil|sketch/, ['edges', '#e8e4da', true]],
+    [/ascii|glyph|terminal|code|matrix/, ['ascii']],
+    [/hex/, ['pixelate', { bs: 6, shape: 'hex' }]],
+    [/low.?poly|tri/, ['pixelate', { bs: 9, shape: 'tri' }]],
+    [/pixel|mosaic|block|voxel/, ['pixelate', { bs: 6, shape: 'sq' }]],
+    [/vhs|tape|analog/, ['glitch', 'vhs']],
+    [/crt|phosphor/, ['glitch', 'crt']],
+    [/glitch|warp|rgb|noise|corrupt/, ['glitch', 'rgb']],
+    [/kaleid|mandala|symmetry|mirror/, ['kaleido']],
+    [/fisheye|barrel|lens|bulge/, ['warp', 'fisheye']],
+    [/polar|swirl|twist/, ['warp', 'polar']],
+    [/portal|void|vortex|wormhole/, ['portal']],
+    [/feedback|trail|zoom/, ['feedback']],
+    [/echo|ghost/, ['echo', 'h']],
+    [/pose|strobe/, ['echo', 'pose']],
+    [/headbang|concert|beat|shake/, ['echo', 'bang']],
+    [/snow|frost/, ['snow']],
+    [/rain|drip|drop/, ['rain']],
+    [/gravity|melt|sag/, ['drip', 'melt']],
+    [/ice.?cream|cone|scoop/, ['icecream']],
+    [/mesh|wire/, ['mesh']],
+    [/dots|landmark|mediapipe|point/, ['dots']],
+    [/fill|neon.?mask/, ['fill']],
+    [/stare|blink|eye/, ['stare']],
+    [/glass|shade|spectacle/, ['glasses']],
+    [/cat|paw|claw|swipe|attack|slap/, ['paw']],
+    [/paint|draw|brush/, ['sparkles', 'paint']],
+    [/spell|magic|spark|glitter|star|gesture/, ['sparkles', 'spell']],
+    [/aura|mood|halo/, ['aura']],
+    [/bloom|glow|highlight/, ['bloom']],
+    [/shard|shatter|tear|crack|break|glass|dimension|voronoi/, ['shatter', '#7c6bff']],
+    [/scan|reveal|x.?ray|slice/, ['scanreveal']],
+    [/face|head/, ['dots']],
   ];
   function autoFor(slug, hints) {
     const text = (String(slug) + ' ' + ((hints && hints.keywords) || '')).toLowerCase();
-    for (const [re, mk, pal] of HINTS) if (re.test(text)) return { f: mk(), pal: PAL[pal] };
-    return { f: M.plasma({ sp: 1.2, sc: 0.42 }), pal: PAL.rainbow };
+    for (const [re, spec] of HINTS) if (re.test(text)) return spec;
+    return ['recolor', 'plasma'];
   }
   const get = (slug, hints) => FX[String(slug).toLowerCase()] || autoFor(slug, hints || {});
 
-  // Size a canvas backing store to its true on-screen device pixels (no upscaling => crisp),
-  // then derive per-cell geometry. The motif field still samples the fixed N×N logical grid.
-  function measure(c) {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const r = c.getBoundingClientRect();
-    const W = Math.max(2, Math.round((r.width || 240) * dpr));
-    const H = Math.max(2, Math.round((r.height || 288) * dpr));
-    c.width = W; c.height = H;
-    return { W, H, cw: W / N, ch: H / N };
-  }
+  function paint(sc, spec, t, v) { const fn = E[spec[0]] || E.recolor; fn(sc, t, v, spec[1], spec[2]); }
+  function scan(ctx, W, H, t) { ctx.fillStyle = 'rgba(0,0,0,.14)'; for (let y = Math.floor((t * 26) % 3); y < H; y += 3) ctx.fillRect(0, y, W, 1); }
 
-  // Crisp 16-bit + ASCII: each active cell is a solid palette block with an ASCII glyph
-  // punched one shade brighter. Hard edges, high contrast, rendered at device resolution.
-  function draw(ctx, field, pal, t, g) {
-    const { W, H, cw, ch } = g, L = pal.length;
-    const bw = Math.ceil(cw) + 1, bh = Math.ceil(ch) + 1;
-    ctx.fillStyle = pal[0]; ctx.fillRect(0, 0, W, H);
-    ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
-    ctx.font = '700 ' + Math.max(6, Math.round(Math.min(cw, ch) * 1.08)) + 'px ui-monospace,Menlo,monospace';
-    for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
-      let v = field(gx, gy, t) + 0.05 * Math.sin((gx * 3 + gy * 5) + t * 4); v = clamp(v);
-      if (v < 0.10) continue;
-      const ci = Math.min(L - 1, 1 + Math.floor(v * (L - 1)));
-      ctx.fillStyle = pal[ci];
-      ctx.fillRect(Math.floor(gx * cw), Math.floor(gy * ch), bw, bh);
-      if (v > 0.32) {
-        ctx.fillStyle = pal[Math.min(L - 1, ci + 1)];
-        ctx.fillText(RAMP[Math.min(RAMP.length - 1, Math.floor(v * RAMP.length))], gx * cw + cw / 2, gy * ch + ch / 2);
-      }
-    }
-    ctx.fillStyle = 'rgba(0,0,0,.13)';               // light drifting scanlines — CRT feel, no wash-out
-    for (let y = Math.floor((t * 26) % 4); y < H; y += 4) ctx.fillRect(0, y, W, 1);
+  function measure(c) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2), r = c.getBoundingClientRect();
+    const W = Math.max(2, Math.round((r.width || 220) * dpr)), H = Math.max(2, Math.round((r.height || 264) * dpr));
+    c.width = W; c.height = H; const ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false; return { W, H, ctx };
   }
 
   let _raf = null, _io = null, _ro = null;
   function animateAll(root) {
     root = root || document;
-    if (_raf) cancelAnimationFrame(_raf), _raf = null;          // re-entrant: gallery re-renders on tab switch
+    if (_raf) cancelAnimationFrame(_raf), _raf = null;
     if (_io) _io.disconnect(), _io = null;
     if (_ro) _ro.disconnect(), _ro = null;
+    const small = document.createElement('canvas'); small.width = PW; small.height = PH; const sc = small.getContext('2d', { willReadFrequently: true });
     const tiles = [...root.querySelectorAll('canvas[data-fx]')].map((c) => {
-      const fx = get(c.dataset.fx, { keywords: c.dataset.hint || '' });   // explicit, else auto-generated
-      return { ctx: c.getContext('2d'), fx, el: c, g: measure(c), vis: false };
+      const spec = get(c.dataset.fx, { keywords: c.dataset.hint || '' }); const g = measure(c);
+      return { el: c, spec, v: variantFor(c.dataset.fx), g, vis: false };
     });
     if (!tiles.length) return;
-    // Keep each backing store == its true rendered size (fires after the grid settles + on resize) => never upscaled.
     _ro = new ResizeObserver((es) => es.forEach((e) => { const tt = tiles.find((z) => z.el === e.target); if (tt) tt.g = measure(tt.el); }));
     tiles.forEach((tt) => _ro.observe(tt.el));
-    _io = new IntersectionObserver((es) => es.forEach((e) => { const tt = tiles.find((z) => z.el === e.target); if (tt) tt.vis = e.isIntersecting; }), { rootMargin: '140px' });
+    _io = new IntersectionObserver((es) => es.forEach((e) => { const tt = tiles.find((z) => z.el === e.target); if (tt) tt.vis = e.isIntersecting; }), { rootMargin: '160px' });
     tiles.forEach((tt) => _io.observe(tt.el));
-    if (matchMedia('(prefers-reduced-motion:reduce)').matches) { tiles.forEach((tt) => draw(tt.ctx, tt.fx.f, tt.fx.pal, 1.2, tt.g)); return; }
+    const render = (tt, t) => { paint(sc, tt.spec, t, tt.v); const { ctx, W, H } = tt.g; ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, W, H); ctx.drawImage(small, 0, 0, PW, PH, 0, 0, W, H); scan(ctx, W, H, t); };
+    if (matchMedia('(prefers-reduced-motion:reduce)').matches) { tiles.forEach((tt) => render(tt, 1.2)); return; }
     let last = 0;
-    function frame(now) { if (now - last > 33) { last = now; const t = now / 1000; for (const tt of tiles) if (tt.vis) draw(tt.ctx, tt.fx.f, tt.fx.pal, t, tt.g); } _raf = requestAnimationFrame(frame); }
+    function frame(now) { if (now - last > 33) { last = now; const t = now / 1000; for (const tt of tiles) if (tt.vis) render(tt, t); } _raf = requestAnimationFrame(frame); }
     _raf = requestAnimationFrame(frame);
   }
 
-  window.MMFX = { FX, PAL, M, draw, animateAll, autoFor, get, has: (s) => !!FX[String(s).toLowerCase()], slugs: () => Object.keys(FX) };
+  window.MMFX = { FX, E, get, autoFor, animateAll, variantFor, has: (s) => !!FX[String(s).toLowerCase()], slugs: () => Object.keys(FX) };
 })();
