@@ -24,9 +24,10 @@
   .mask{position:relative;aspect-ratio:5/6;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#0c0b0a;
     transition:border-color .18s}
   .mask:hover{border-color:color-mix(in oklch,var(--ink) 32%,transparent)}
-  .mask .thumb{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s cubic-bezier(.2,.7,.3,1)}
-  canvas.thumb{image-rendering:pixelated}
-  .mask:hover .thumb{transform:scale(1.05)}
+  .mask .thumb{position:absolute;inset:0;width:100%;height:100%;display:block}
+  img.thumb{object-fit:cover;transition:transform .4s cubic-bezier(.2,.7,.3,1)}
+  canvas.thumb{image-rendering:auto}
+  .mask:hover img.thumb{transform:scale(1.05)}
   .mask .scrim{display:block;position:absolute;inset:0;pointer-events:none;background:linear-gradient(to top,rgba(0,0,0,.86) 0%,rgba(0,0,0,.34) 40%,rgba(0,0,0,0) 66%)}
   .mask .no{position:absolute;left:13px;top:11px;font-family:var(--disp);font-size:12px;letter-spacing:.05em;color:rgba(255,255,255,.62);text-shadow:0 1px 5px rgba(0,0,0,.55)}
   .mask .meta{position:absolute;left:14px;right:14px;bottom:12px;color:#fff}

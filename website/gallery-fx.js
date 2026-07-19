@@ -7,10 +7,10 @@
   const TAU = Math.PI * 2;
   const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
   const PW = 74, PH = 88, CX = 37;                 // logical face grid + centre x
-  const SS = 4, BW = PW * SS, BH = PH * SS;         // 4x supersample => 296x352 render buffer
+  let SS = 6, BW = PW * SS, BH = PH * SS;            // set per-tile in paint() to the tile's TRUE device resolution
   const RAMP = " .:-=+*ox#%@";
   const hash = (s) => { let h = 2166136261; s = String(s); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; };
-  const TMP = document.createElement('canvas'); TMP.width = BW; TMP.height = BH;
+  const TMP = document.createElement('canvas'); TMP.width = 1280; TMP.height = 1520;   // base-sampling scratch (>= any tile)
   const TC = TMP.getContext('2d', { willReadFrequently: true });
 
   const ell = (c, x, y, rx, ry, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, TAU); c.fill(); };
@@ -130,7 +130,7 @@
     },
     edges(c, t, v, col, hatchOn) {
       const bd = baseImg(v, t).data; rect(c, 0, 0, BW, BH, hatchOn ? '#efe9dd' : '#05080a');
-      const L = (dx, dy) => luma(bd, (dy * BW + dx) * 4);
+      const L = (dx, dy) => luma(bd, ((dy | 0) * BW + (dx | 0)) * 4);
       for (let ly = 1; ly < PH - 1; ly++) for (let lx = 1; lx < PW - 1; lx++) {
         const dx = lx * SS, dy = ly * SS, m = Math.hypot(L(dx + SS, dy) - L(dx - SS, dy), L(dx, dy + SS) - L(dx, dy - SS));
         if (hatchOn) { if (m > 0.18) { c.fillStyle = '#1c1a17'; c.fillRect(dx, dy, SS, SS); } else if (L(dx, dy) < 0.5 && ((lx + ly) % 4 === (Math.floor(t * 2) % 2 ? 0 : 2))) { c.fillStyle = 'rgba(40,36,30,.7)'; c.fillRect(dx, dy, SS, SS); } }
@@ -145,7 +145,7 @@
     },
     ascii(c, t, v) {
       const d = baseImg(v, t).data; rect(c, 0, 0, BW, BH, '#02120a'); c.font = '700 ' + (4 * SS) + 'px ui-monospace,monospace'; c.textBaseline = 'top'; const step = 2;
-      for (let ly = 0; ly < PH; ly += step) for (let lx = 0; lx < PW; lx += step) { const dx = lx * SS, dy = ly * SS; let l = luma(d, (dy * BW + dx) * 4); l = Math.min(0.999, l + 0.06 * Math.sin(t * 6 + lx * 0.5)); if (l < 0.12) continue; c.fillStyle = l > 0.6 ? '#c6ffd0' : (l > 0.35 ? '#38e06a' : '#0f7a34'); c.fillText(RAMP[Math.floor(l * RAMP.length)], dx, dy); }
+      for (let ly = 0; ly < PH; ly += step) for (let lx = 0; lx < PW; lx += step) { const dx = lx * SS, dy = ly * SS; let l = luma(d, ((dy | 0) * BW + (dx | 0)) * 4); l = Math.min(0.999, l + 0.06 * Math.sin(t * 6 + lx * 0.5)); if (l < 0.12) continue; c.fillStyle = l > 0.6 ? '#c6ffd0' : (l > 0.35 ? '#38e06a' : '#0f7a34'); c.fillText(RAMP[Math.floor(l * RAMP.length)], dx, dy); }
     },
     pixelate(c, t, v, o) {
       const bd = baseImg(v, t).data, B = o.bs * SS, shape = o.shape; rect(c, 0, 0, BW, BH, '#0c0b0a');
@@ -160,9 +160,9 @@
     },
     glitch(c, t, v, mode) {
       const img = baseImg(v, t), d = img.data;
-      if (mode === 'rgb' || mode === 'crt') { const out = new Uint8ClampedArray(d); const dx = (mode === 'crt' ? 1 : Math.round(2 + 1.5 * Math.sin(t * 6))) * SS;
-        for (let y = 0; y < BH; y++) for (let x = 0; x < BW; x++) { const i = (y * BW + x) * 4; const ri = (y * BW + clamp(x - dx, 0, BW - 1)) * 4, bi = (y * BW + clamp(x + dx, 0, BW - 1)) * 4; out[i] = d[ri]; out[i + 2] = d[bi + 2]; } d.set(out); }
-      if (mode === 'vhs' || mode === 'rgb') { for (let y = 0; y < BH; y++) { if (Math.random() < (mode === 'vhs' ? 0.10 : 0.05)) { const sh = (((Math.random() * 8) | 0) - 4) * SS; for (let x = 0; x < BW; x++) { const i = (y * BW + x) * 4, si = (y * BW + clamp(x + sh, 0, BW - 1)) * 4; d[i] = d[si]; d[i + 1] = d[si + 1]; d[i + 2] = d[si + 2]; } } } }
+      if (mode === 'rgb' || mode === 'crt') { const out = new Uint8ClampedArray(d); const dx = Math.round((mode === 'crt' ? 1 : Math.round(2 + 1.5 * Math.sin(t * 6))) * SS);
+        for (let y = 0; y < BH; y++) for (let x = 0; x < BW; x++) { const i = (y * BW + x) * 4; const ri = (y * BW + (clamp(x - dx, 0, BW - 1) | 0)) * 4, bi = (y * BW + (clamp(x + dx, 0, BW - 1) | 0)) * 4; out[i] = d[ri]; out[i + 2] = d[bi + 2]; } d.set(out); }
+      if (mode === 'vhs' || mode === 'rgb') { for (let y = 0; y < BH; y++) { if (Math.random() < (mode === 'vhs' ? 0.10 : 0.05)) { const sh = Math.round((((Math.random() * 8) | 0) - 4) * SS); for (let x = 0; x < BW; x++) { const i = (y * BW + x) * 4, si = (y * BW + (clamp(x + sh, 0, BW - 1) | 0)) * 4; d[i] = d[si]; d[i + 1] = d[si + 1]; d[i + 2] = d[si + 2]; } } } }
       c.putImageData(img, 0, 0);
       if (mode === 'crt') { c.fillStyle = 'rgba(0,0,0,.28)'; for (let y = 0; y < BH; y += 3 * SS) c.fillRect(0, y, BW, SS); const g = c.createRadialGradient(BW / 2, BH / 2, BW * 0.27, BW / 2, BH / 2, BW * 0.7); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.5)'); c.fillStyle = g; c.fillRect(0, 0, BW, BH); }
       if (mode === 'vhs') { c.fillStyle = 'rgba(120,255,200,.05)'; c.fillRect(0, (t * 40 * SS) % BH, BW, 6 * SS); }
@@ -359,18 +359,20 @@
   const get = (slug, hints) => FX[String(slug).toLowerCase()] || autoFor(slug, hints || {});
 
   // ---------- render one effect into the shared BWxBH scratch ----------
+  // render one effect onto `sc` at sc's own native resolution (no upscale => no blur, no blocks)
   function paint(sc, spec, t, v) {
-    const name = spec[0];
-    sc.setTransform(1, 0, 0, 1, 0, 0); sc.clearRect(0, 0, BW, BH);
+    const W = sc.canvas.width, H = sc.canvas.height, name = spec[0];
+    SS = W / PW; BW = W; BH = H;
+    sc.setTransform(1, 0, 0, 1, 0, 0); sc.clearRect(0, 0, W, H);
     if (VECTOR.has(name)) { sc.setTransform(SS, 0, 0, SS, 0, 0); (E[name] || E.recolor)(sc, t, v, spec[1], spec[2]); sc.setTransform(1, 0, 0, 1, 0, 0); }
     else (E[name] || E.recolor)(sc, t, v, spec[1], spec[2]);
   }
-  const scanlines = (ctx, W, H, t) => { ctx.fillStyle = 'rgba(0,0,0,.12)'; for (let y = Math.floor((t * 26) % 3); y < H; y += 3) ctx.fillRect(0, y, W, 1); };
+  const scanlines = (ctx, W, H, t) => { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(0,0,0,.10)'; const g = Math.max(2, Math.round(H / 150)); for (let y = Math.floor((t * 26) % (g * 2)); y < H; y += g * 2) ctx.fillRect(0, y, W, 1); };
 
   function measure(c) {
-    const dpr = Math.min(window.devicePixelRatio || 1, 3), r = c.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2), r = c.getBoundingClientRect();
     const W = Math.max(2, Math.round((r.width || 220) * dpr)), H = Math.max(2, Math.round((r.height || 264) * dpr));
-    c.width = W; c.height = H; const ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false; return { W, H, ctx };
+    c.width = W; c.height = H; return { W, H, ctx: c.getContext('2d') };
   }
 
   let _raf = null, _io = null, _ro = null;
@@ -379,14 +381,13 @@
     if (_raf) cancelAnimationFrame(_raf), _raf = null;
     if (_io) _io.disconnect(), _io = null;
     if (_ro) _ro.disconnect(), _ro = null;
-    const scr = document.createElement('canvas'); scr.width = BW; scr.height = BH; const sc = scr.getContext('2d', { willReadFrequently: true });
     const tiles = [...root.querySelectorAll('canvas[data-fx]')].map((c) => ({ el: c, spec: get(c.dataset.fx, { keywords: c.dataset.hint || '' }), v: variantFor(c.dataset.fx), g: measure(c), vis: false }));
     if (!tiles.length) return;
     _ro = new ResizeObserver((es) => es.forEach((e) => { const tt = tiles.find((z) => z.el === e.target); if (tt) tt.g = measure(tt.el); }));
     tiles.forEach((tt) => _ro.observe(tt.el));
     _io = new IntersectionObserver((es) => es.forEach((e) => { const tt = tiles.find((z) => z.el === e.target); if (tt) tt.vis = e.isIntersecting; }), { rootMargin: '160px' });
     tiles.forEach((tt) => _io.observe(tt.el));
-    const render = (tt, t) => { paint(sc, tt.spec, t, tt.v); const { ctx, W, H } = tt.g; ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, W, H); ctx.drawImage(scr, 0, 0, BW, BH, 0, 0, W, H); scanlines(ctx, W, H, t); };
+    const render = (tt, t) => { paint(tt.g.ctx, tt.spec, t, tt.v); scanlines(tt.g.ctx, tt.g.W, tt.g.H, t); };
     if (matchMedia('(prefers-reduced-motion:reduce)').matches) { tiles.forEach((tt) => render(tt, 1.2)); return; }
     let last = 0;
     function frame(now) { if (now - last > 33) { last = now; const t = now / 1000; for (const tt of tiles) if (tt.vis) render(tt, t); } _raf = requestAnimationFrame(frame); }
