@@ -3,3 +3,5 @@ wrangler.toml
 RELEASE-PLAN.md
 build-catalog.mjs
 _deferred/
+tools/
+filter-lab.html

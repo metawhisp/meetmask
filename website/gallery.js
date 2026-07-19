@@ -20,11 +20,20 @@ const pad = (n) => String(n).padStart(2, '0');
 function plate(m, no) {
   const cat = esc(CAT_LABEL[m.category] || m.category);
   const title = esc(m.title);
-  // strict allow-list for the preview path — drop anything that isn't a mask webp
-  const img = String(m.img);
-  if (!/^assets\/masks\/[a-z0-9_.-]+\.webp$/i.test(img)) return '';
+  const slug = String(m.slug || '').toLowerCase();
+  // Live animated 16-bit + ASCII tile (gallery-fx.js). Explicit design when we have one, else
+  // MMFX auto-generates one from the slug + subtitle keywords — so every mask gets a tile.
+  let thumb;
+  if (/^[a-z0-9]+$/.test(slug) && window.MMFX) {
+    const hint = esc(String(m.subtitle || '')).replace(/"/g, '');
+    thumb = `<canvas class="thumb" data-fx="${slug}" data-hint="${hint}" role="img" aria-label="${title} effect" width="360" height="360"></canvas>`;
+  } else {
+    const img = String(m.img);
+    if (!/^assets\/masks\/[a-z0-9_.-]+\.webp$/i.test(img)) return '';
+    thumb = `<img class="thumb" src="./${img}" alt="${title} mask preview" loading="lazy" width="320" height="320"/>`;
+  }
   return `<article class="mask">
-    <img class="thumb" src="./${img}" alt="${title} mask preview" loading="lazy" width="320" height="320"/>
+    ${thumb}
     <div class="scrim"></div>
     <div class="no">No.&nbsp;${no}</div>
     <div class="meta"><div class="row"><h4>${title}</h4><span class="tag">${cat}</span></div>
@@ -47,6 +56,7 @@ function renderGrid() {
   $('#grid').innerHTML = items.length
     ? items.map((m, i) => plate(m, pad(i + 1))).join('')
     : `<div class="empty">No masks here yet.</div>`;
+  if (window.MMFX) MMFX.animateAll();   // (re)mount live tiles for the current filter
 }
 
 $('#dlBtn').onclick = () => { window.location.href = 'https://dl.meetamask.com/app'; };
