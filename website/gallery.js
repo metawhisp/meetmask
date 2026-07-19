@@ -34,7 +34,7 @@ function plate(m, no) {
   }
   return `<article class="mask">
     ${thumb}
-    <div class="scrim"></div>
+    <div class="tint"></div>
     <div class="no">No.&nbsp;${no}</div>
     <div class="meta"><div class="row"><h4>${title}</h4><span class="tag">${cat}</span></div>
       ${m.subtitle ? `<div class="sub">${esc(m.subtitle)}</div>` : ''}</div>

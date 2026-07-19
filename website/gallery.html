@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./styles.css">
 <style>
+  header{background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none}
   .top{padding:var(--sp-16) 0 var(--sp-8)}
   .top .row{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
   .top h1{font-size:clamp(38px,5.4vw,68px);margin-top:6px}
@@ -28,7 +29,7 @@
   img.thumb{object-fit:cover;transition:transform .4s cubic-bezier(.2,.7,.3,1)}
   canvas.thumb{image-rendering:auto}
   .mask:hover img.thumb{transform:scale(1.05)}
-  .mask .scrim{display:block;position:absolute;inset:0;pointer-events:none;background:linear-gradient(to top,rgba(0,0,0,.86) 0%,rgba(0,0,0,.34) 40%,rgba(0,0,0,0) 66%)}
+  .mask .tint{display:block;position:absolute;inset:0;pointer-events:none;background:linear-gradient(to top,rgba(0,0,0,.86) 0%,rgba(0,0,0,.34) 40%,rgba(0,0,0,0) 66%)}
   .mask .no{position:absolute;left:13px;top:11px;font-family:var(--disp);font-size:12px;letter-spacing:.05em;color:rgba(255,255,255,.62);text-shadow:0 1px 5px rgba(0,0,0,.55)}
   .mask .meta{position:absolute;left:14px;right:14px;bottom:12px;color:#fff}
   .mask .meta .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
