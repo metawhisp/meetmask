@@ -5,8 +5,7 @@
   const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
   const fract = (v) => v - Math.floor(v);
   const TAU = Math.PI * 2;
-  const N = 30, CX = (N - 1) / 2, CY = (N - 1) / 2;      // glyph grid (chunky 16-bit)
-  const CELL = 12, PX = N * CELL;                         // 360px internal
+  const N = 30, CX = (N - 1) / 2, CY = (N - 1) / 2;      // logical glyph grid (chunky 16-bit)
   const RAMP = " .:-=+*ox#░▒▓█";
   const hash = (x, y) => fract(Math.sin(x * 127.1 + y * 311.7) * 43758.5453);
   const SEEDS = []; for (let i = 0; i < 22; i++) SEEDS.push([hash(i, 7) * N, hash(i * 1.3, 13) * N]);
@@ -162,36 +161,59 @@
   }
   const get = (slug, hints) => FX[String(slug).toLowerCase()] || autoFor(slug, hints || {});
 
-  function draw(ctx, field, pal, t) {
-    ctx.fillStyle = pal[0]; ctx.fillRect(0, 0, PX, PX);
-    ctx.font = '700 ' + (CELL + 2) + 'px ui-monospace,Menlo,monospace'; ctx.textBaseline = 'top';
-    for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
-      let v = field(gx, gy, t) + 0.04 * Math.sin((gx * 3 + gy * 5) + t * 4); v = clamp(v);
-      if (v < 0.06) continue;
-      ctx.fillStyle = pal[Math.min(pal.length - 1, 1 + Math.floor(v * (pal.length - 1)))];
-      ctx.fillText(RAMP[Math.min(RAMP.length - 1, Math.floor(v * RAMP.length))], gx * CELL, gy * CELL);
-    }
-    ctx.fillStyle = 'rgba(0,0,0,.20)'; for (let y = (t * 22) % 3; y < PX; y += 3) ctx.fillRect(0, y, PX, 1);
-    const vg = ctx.createRadialGradient(PX / 2, PX / 2, PX * 0.28, PX / 2, PX / 2, PX * 0.72);
-    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.5)');
-    ctx.fillStyle = vg; ctx.fillRect(0, 0, PX, PX);
+  // Size a canvas backing store to its true on-screen device pixels (no upscaling => crisp),
+  // then derive per-cell geometry. The motif field still samples the fixed N×N logical grid.
+  function measure(c) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const r = c.getBoundingClientRect();
+    const W = Math.max(2, Math.round((r.width || 240) * dpr));
+    const H = Math.max(2, Math.round((r.height || 288) * dpr));
+    c.width = W; c.height = H;
+    return { W, H, cw: W / N, ch: H / N };
   }
 
-  let _raf = null, _io = null;
+  // Crisp 16-bit + ASCII: each active cell is a solid palette block with an ASCII glyph
+  // punched one shade brighter. Hard edges, high contrast, rendered at device resolution.
+  function draw(ctx, field, pal, t, g) {
+    const { W, H, cw, ch } = g, L = pal.length;
+    const bw = Math.ceil(cw) + 1, bh = Math.ceil(ch) + 1;
+    ctx.fillStyle = pal[0]; ctx.fillRect(0, 0, W, H);
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+    ctx.font = '700 ' + Math.max(6, Math.round(Math.min(cw, ch) * 1.08)) + 'px ui-monospace,Menlo,monospace';
+    for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
+      let v = field(gx, gy, t) + 0.05 * Math.sin((gx * 3 + gy * 5) + t * 4); v = clamp(v);
+      if (v < 0.10) continue;
+      const ci = Math.min(L - 1, 1 + Math.floor(v * (L - 1)));
+      ctx.fillStyle = pal[ci];
+      ctx.fillRect(Math.floor(gx * cw), Math.floor(gy * ch), bw, bh);
+      if (v > 0.32) {
+        ctx.fillStyle = pal[Math.min(L - 1, ci + 1)];
+        ctx.fillText(RAMP[Math.min(RAMP.length - 1, Math.floor(v * RAMP.length))], gx * cw + cw / 2, gy * ch + ch / 2);
+      }
+    }
+    ctx.fillStyle = 'rgba(0,0,0,.13)';               // light drifting scanlines — CRT feel, no wash-out
+    for (let y = Math.floor((t * 26) % 4); y < H; y += 4) ctx.fillRect(0, y, W, 1);
+  }
+
+  let _raf = null, _io = null, _ro = null;
   function animateAll(root) {
     root = root || document;
     if (_raf) cancelAnimationFrame(_raf), _raf = null;          // re-entrant: gallery re-renders on tab switch
     if (_io) _io.disconnect(), _io = null;
+    if (_ro) _ro.disconnect(), _ro = null;
     const tiles = [...root.querySelectorAll('canvas[data-fx]')].map((c) => {
       const fx = get(c.dataset.fx, { keywords: c.dataset.hint || '' });   // explicit, else auto-generated
-      c.width = PX; c.height = PX; return { ctx: c.getContext('2d'), fx, el: c, vis: false };
+      return { ctx: c.getContext('2d'), fx, el: c, g: measure(c), vis: false };
     });
     if (!tiles.length) return;
+    // Keep each backing store == its true rendered size (fires after the grid settles + on resize) => never upscaled.
+    _ro = new ResizeObserver((es) => es.forEach((e) => { const tt = tiles.find((z) => z.el === e.target); if (tt) tt.g = measure(tt.el); }));
+    tiles.forEach((tt) => _ro.observe(tt.el));
     _io = new IntersectionObserver((es) => es.forEach((e) => { const tt = tiles.find((z) => z.el === e.target); if (tt) tt.vis = e.isIntersecting; }), { rootMargin: '140px' });
     tiles.forEach((tt) => _io.observe(tt.el));
-    if (matchMedia('(prefers-reduced-motion:reduce)').matches) { tiles.forEach((tt) => draw(tt.ctx, tt.fx.f, tt.fx.pal, 1.2)); return; }
+    if (matchMedia('(prefers-reduced-motion:reduce)').matches) { tiles.forEach((tt) => draw(tt.ctx, tt.fx.f, tt.fx.pal, 1.2, tt.g)); return; }
     let last = 0;
-    function frame(now) { if (now - last > 33) { last = now; const t = now / 1000; for (const tt of tiles) if (tt.vis) draw(tt.ctx, tt.fx.f, tt.fx.pal, t); } _raf = requestAnimationFrame(frame); }
+    function frame(now) { if (now - last > 33) { last = now; const t = now / 1000; for (const tt of tiles) if (tt.vis) draw(tt.ctx, tt.fx.f, tt.fx.pal, t, tt.g); } _raf = requestAnimationFrame(frame); }
     _raf = requestAnimationFrame(frame);
   }
 
