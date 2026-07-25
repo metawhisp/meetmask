@@ -29,6 +29,7 @@ final class EngineFrameReceiver: ObservableObject {
     private var lastSeq: UInt64 = 0
     private var frameCount = 0
     private var pendingFirstFrame = false   // frameQueue-owned: true from (re)launch until first frame
+    private var reportedGeometryMismatch = false   // frameQueue-owned: only shout about a stale engine once
     private var timer: DispatchSourceTimer?
     private var activity: NSObjectProtocol?
 
@@ -175,6 +176,7 @@ final class EngineFrameReceiver: ObservableObject {
 
     private func launchEngine(maskURL: URL) {
         pendingFirstFrame = true   // frameQueue: next committed frame clears `switching`
+        reportedGeometryMismatch = false   // a fresh engine deserves a fresh verdict
         guard let enginePath = Self.findEngine() else { return }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: enginePath)
@@ -225,7 +227,18 @@ final class EngineFrameReceiver: ObservableObject {
             let w = Int(base.load(fromByteOffset: 8, as: UInt32.self))
             let h = Int(base.load(fromByteOffset: 12, as: UInt32.self))
             // Fixed-size buffer — reject any other dimensions instead of copying past it.
-            guard w == Self.frameW, h == Self.frameH else { return }
+            // A PERSISTENT mismatch means the installed engine speaks an older wire contract
+            // (e.g. a 720p engine left over from a previous app version). Dropping frames
+            // silently would look like a dead camera, so say it out loud — once.
+            guard w == Self.frameW, h == Self.frameH else {
+                if !reportedGeometryMismatch {
+                    reportedGeometryMismatch = true
+                    os_log("receiver: engine publishes %dx%d, expected %dx%d — engine is outdated",
+                           log: log, type: .error, w, h, Self.frameW, Self.frameH)
+                    setStatus("Движок устарел (\(w)×\(h) вместо \(Self.frameW)×\(Self.frameH)) — переустанови движок")
+                }
+                return
+            }
             let data = base.advanced(by: 16)
             // Copy out (into a CVPixelBuffer, and optionally the preview image) while
             // the frame is believed stable…

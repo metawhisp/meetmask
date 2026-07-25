@@ -32,6 +32,26 @@ final class EngineInstaller: ObservableObject {
 
     nonisolated static func isInstalled() -> Bool { FileManager.default.isExecutableFile(atPath: enginePath) }
 
+    // MARK: engine contract
+    //
+    // The engine is a SEPARATE download, so a host update does NOT update it. The frame
+    // geometry is compiled into both sides independently (engine/frame_geometry.h and
+    // Shared.swift), and the receiver drops any frame whose dimensions differ — so an
+    // outdated engine means a silently black camera. Version the contract explicitly:
+    // record what the installed engine produces, and re-download when it no longer matches.
+
+    /// Bumped whenever the host↔engine wire contract changes (geometry, shm layout, args).
+    nonisolated static let engineContract = "1920x1080-bgra-seqlock-v1"
+
+    nonisolated static var contractFile: URL { installRoot.appendingPathComponent("engine.contract") }
+
+    nonisolated static func installedContract() -> String? {
+        (try? String(contentsOf: contractFile, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// True when an engine is present AND it speaks the contract this host expects.
+    nonisolated static func isUsable() -> Bool { isInstalled() && installedContract() == engineContract }
+
     /// Engine archive URL. Production: set to your CDN. Dev/test: `MEETAMASK_ENGINE_URL` env
     /// (a local http server) overrides it so the whole flow is testable without a CDN.
     nonisolated static var sourceURL: URL? {
@@ -46,7 +66,14 @@ final class EngineInstaller: ObservableObject {
 
     /// Ensure the engine is present; download+unpack it if not. Safe to call repeatedly.
     func ensureInstalled() async {
-        if Self.isInstalled() { state = .installed; return }
+        // Existence is NOT enough: an engine left over from an older app version speaks a
+        // different wire contract (e.g. 1280x720 frames) and the receiver would silently
+        // drop every frame → black camera. Re-download whenever the contract doesn't match.
+        if Self.isUsable() { state = .installed; return }
+        if Self.isInstalled() {
+            os_log("installer: engine present but contract %{public}@ != %{public}@ — re-downloading",
+                   log: log, type: .info, Self.installedContract() ?? "(none)", Self.engineContract)
+        }
         guard let url = Self.sourceURL else { state = .failed("Не задан источник движка"); return }
         await install(from: url)
     }
@@ -84,6 +111,9 @@ final class EngineInstaller: ObservableObject {
             stripQuarantine(Self.engineApp)
 
             guard Self.isInstalled() else { throw Err.msg("движок не запускаем после распаковки") }
+            // Record the contract this engine speaks — written LAST, so a half-finished
+            // install is never mistaken for a usable one.
+            try? Self.engineContract.write(to: Self.contractFile, atomically: true, encoding: .utf8)
             state = .installed
             os_log("installer: engine installed at %{public}@", log: log, type: .info, Self.engineApp.path)
         } catch {
