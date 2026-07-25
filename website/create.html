@@ -129,7 +129,7 @@ footer{border-top:1px solid var(--line-2);padding:46px 0}
           <li><span class="mk">✓</span><span>A <b>.zip</b> or a <b>folder</b> containing <code>index.html</code> — at the root, or one level down.</span></li>
           <li><span class="mk">✓</span><span><b>Fully self-contained</b> — every script, style, image, font and model lives inside the package.</span></li>
           <li><span class="mk">✓</span><span><b>≤ 200 MB.</b></span></li>
-          <li><span class="mk">✓</span><span>Draws to fill <b>1280×720</b> (16:9).</span></li>
+          <li><span class="mk">✓</span><span>Draws to fill <b>1920×1080</b> (16:9).</span></li>
         </ul>
       </div>
       <div class="card">
@@ -178,16 +178,16 @@ footer{border-top:1px solid var(--line-2);padding:46px 0}
 &lt;style&gt;html,body{margin:0;background:#000;overflow:hidden}#c{width:100%;height:100%}&lt;/style&gt;
 &lt;/head&gt;&lt;body&gt;
   &lt;video id="v" autoplay playsinline muted style="display:none"&gt;&lt;/video&gt;
-  &lt;canvas id="c" width="1280" height="720"&gt;&lt;/canvas&gt;
+  &lt;canvas id="c" width="1920" height="1080"&gt;&lt;/canvas&gt;
   &lt;button id="startBtn"&gt;Enter&lt;/button&gt;
   &lt;script&gt;
     const v = document.getElementById('v');
     const x = document.getElementById('c').getContext('2d');
     async function start() {
       document.getElementById('startBtn').style.display = 'none';
-      v.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+      v.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: 1920, height: 1080 } });
       (function loop(){
-        x.drawImage(v, 0, 0, 1280, 720);
+        x.drawImage(v, 0, 0, 1920, 1080);
         <span class="c">/* …your effect here… */</span>
         requestAnimationFrame(loop);
       })();
@@ -215,7 +215,7 @@ footer{border-top:1px solid var(--line-2);padding:46px 0}
       <li><span class="box"></span><code>index.html</code> present (root, or one folder down)</li>
       <li><span class="box"></span>Zero <code>https://</code> / CDN references — all local</li>
       <li><span class="box"></span>No <code>fetch</code> / <code>import</code> — tags + inline only</li>
-      <li><span class="box"></span>Fills 1280×720</li>
+      <li><span class="box"></span>Fills 1920×1080</li>
       <li><span class="box"></span>Has <code>#startBtn</code> or auto-starts</li>
       <li><span class="box"></span>Under 200 MB</li>
     </ul>

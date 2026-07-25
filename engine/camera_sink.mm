@@ -1,13 +1,15 @@
 #include "camera_sink.h"
 
+#include "frame_geometry.h"
+
 #import <Foundation/Foundation.h>
 #include <algorithm>
 #include <vector>
 
 namespace {
 
-constexpr int kW = 1280;
-constexpr int kH = 720;
+constexpr int kW = mm::kFrameWidth;
+constexpr int kH = mm::kFrameHeight;
 
 void QueueAltered(CMIOStreamID, void*, void*) {}
 

@@ -116,7 +116,7 @@ async function startCamera(facing) {
     }
     if (!state.camCanvas) {
       try {
-        state.camCanvas = await createEngineCamera(dom.cam, { width: 1280, height: 720 });
+        state.camCanvas = await createEngineCamera(dom.cam, { width: 1920, height: 1080 });
       } catch (e) {
         console.warn('engine camera bridge failed:', e);
       }
@@ -135,8 +135,8 @@ async function startCamera(facing) {
     audio: false,
     video: {
       facingMode: facing,
-      width:  { ideal: 1280 },
-      height: { ideal: 720 },
+      width:  { ideal: 1920 },
+      height: { ideal: 1080 },
     },
   };
   try {

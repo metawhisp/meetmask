@@ -11,7 +11,7 @@ files, and they shape what a mask can be.
 - A **`.zip`** or a **folder** containing **`index.html`** (at the root, or one level down).
 - **Fully self-contained** — every script, style, image, font and model is inside the package.
 - **≤ 200 MB.**
-- Draws to fill **1280×720** (16:9).
+- Draws to fill **1920×1080** (16:9).
 
 ## What won’t work (the sandbox blocks it)
 - **No network of any kind.** No `fetch`/XHR to the internet, no `<script src="https://…">`, no
@@ -35,7 +35,7 @@ files, and they shape what a mask can be.
 - A **start button** `<button id="startBtn">` — we auto-click it to begin. (Or just start on load.)
 
 ## How it renders
-- Offscreen at **1280×720, 30 fps**. Whatever fills the page becomes the camera frame.
+- Offscreen at **1920×1080, 30 fps**. Whatever fills the page becomes the camera frame.
 - Output is **not mirrored** (the meeting app mirrors your self-view for you).
 
 ## Minimal skeleton
@@ -44,15 +44,15 @@ files, and they shape what a mask can be.
 <style>html,body{margin:0;background:#000;overflow:hidden}#c{width:100%;height:100%}</style>
 </head><body>
   <video id="v" autoplay playsinline muted style="display:none"></video>
-  <canvas id="c" width="1280" height="720"></canvas>
+  <canvas id="c" width="1920" height="1080"></canvas>
   <button id="startBtn">Enter</button>
   <script>
     const v = document.getElementById('v');
     const x = document.getElementById('c').getContext('2d');
     async function start() {
       document.getElementById('startBtn').style.display = 'none';
-      v.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
-      (function loop(){ x.drawImage(v, 0, 0, 1280, 720); /* …your effect here… */ requestAnimationFrame(loop); })();
+      v.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: 1920, height: 1080 } });
+      (function loop(){ x.drawImage(v, 0, 0, 1920, 1080); /* …your effect here… */ requestAnimationFrame(loop); })();
     }
     document.getElementById('startBtn').addEventListener('click', start);
   </script>
@@ -63,7 +63,7 @@ files, and they shape what a mask can be.
 - [ ] `index.html` present (root, or one folder down)
 - [ ] Zero `https://` / CDN references — everything local
 - [ ] No `fetch` / `import` — tags + inline only
-- [ ] Fills 1280×720
+- [ ] Fills 1920×1080
 - [ ] Has `#startBtn` or auto-starts
 - [ ] Under 200 MB
 

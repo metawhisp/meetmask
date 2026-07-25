@@ -1,5 +1,7 @@
 #include "engine_handler.h"
 
+#include "frame_geometry.h"
+
 #import <Foundation/Foundation.h>
 
 #include "include/cef_app.h"
@@ -100,7 +102,7 @@ void EngineHandler::GetViewRect(CefRefPtr<CefBrowser> browser, CefRect& rect) {
     logged = true;
     NSLog(@"[MEETAMASK Engine] GetViewRect called (render handler engaged)");
   }
-  rect = CefRect(0, 0, 1280, 720);
+  rect = CefRect(0, 0, mm::kFrameWidth, mm::kFrameHeight);
 }
 
 void EngineHandler::OnPaint(CefRefPtr<CefBrowser> browser,

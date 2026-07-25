@@ -57,7 +57,7 @@ final class MaskStudio: NSObject, ObservableObject, WKUIDelegate, WKNavigationDe
         let cameraGuard = WKUserScript(source: Self.forceRealCameraJS,
                                        injectionTime: .atDocumentStart, forMainFrameOnly: true)
         cfg.userContentController.addUserScript(cameraGuard)
-        webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 1280, height: 720), configuration: cfg)
+        webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 1920, height: 1080), configuration: cfg)
         super.init()
         webView.uiDelegate = self
         webView.navigationDelegate = self

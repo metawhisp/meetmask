@@ -10,8 +10,11 @@ import CoreMediaIO
 
 let kFrameRate: Int = 30
 let cameraName = "MEETAMASK Camera"
-let fixedCamWidth: Int32 = 1280
-let fixedCamHeight: Int32 = 720
+// 1080p, matching what the physical Mac camera delivers. A 720p virtual camera made every
+// call visibly softer than the built-in one (2.25x fewer pixels). Keep in sync with
+// engine/frame_geometry.h — the engine renders and publishes frames at exactly this size.
+let fixedCamWidth: Int32 = 1920
+let fixedCamHeight: Int32 = 1080
 
 // MARK: - Sink readiness handshake
 //

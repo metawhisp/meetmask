@@ -39,8 +39,10 @@ final class EngineFrameReceiver: ObservableObject {
 
     // The shared buffer is a FIXED size. Frames of any other dimensions are rejected on
     // both sides, never copied with attacker/garbage dimensions.
-    static let frameW = 1280
-    static let frameH = 720
+    // Derived from the single source of truth shared with the camera extension
+    // (Shared.swift) — the engine renders at exactly this size (engine/frame_geometry.h).
+    static let frameW = Int(fixedCamWidth)
+    static let frameH = Int(fixedCamHeight)
     // Per-instance shm file: two windows / app instances each get their own buffer, so
     // they can never become two writers on one file (the seqlock assumes a single writer).
     private let shmPath = NSTemporaryDirectory() + "meetamask-frame-\(UUID().uuidString).bin"

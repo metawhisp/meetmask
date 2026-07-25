@@ -1,5 +1,7 @@
 #include "frame_shm.h"
 
+#include "frame_geometry.h"
+
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -13,7 +15,8 @@ struct Header {
   uint32_t width;
   uint32_t height;
 };
-constexpr size_t kData = 1280u * 720u * 4u;
+constexpr size_t kData =
+    static_cast<size_t>(mm::kFrameWidth) * static_cast<size_t>(mm::kFrameHeight) * 4u;
 constexpr size_t kTotal = sizeof(Header) + kData;  // header is 16 bytes
 }  // namespace
 

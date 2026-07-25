@@ -107,6 +107,9 @@ struct StageView: View {
             }
         }
         .task {
+            // Keep the installed camera extension in step with the bundled one, so an app
+            // update actually takes effect (format/resolution live in the extension).
+            ext.activateIfNeeded()
             await installer.ensureInstalled()
             if installer.state == .installed, !engine.isRunning, !paused, let m = selected {
                 engine.start(maskURL: m.indexURL)
@@ -179,7 +182,7 @@ struct StageView: View {
 
             Spacer(minLength: 14)
             setupBlock
-            Text("\(Self.fpsLabel(engine)) · 1280×720")
+            Text("\(Self.fpsLabel(engine)) · 1920×1080")
                 .font(Brand.mono(9.5)).tracking(0.5).textCase(.uppercase).foregroundStyle(Brand.muted)
                 .padding(.top, 10)
         }
@@ -519,7 +522,7 @@ private struct MaskGuideView: View {
                     group("Accepted", [
                         (.ok, "A .zip or a folder with index.html (root, or one level down)"),
                         (.ok, "Fully self-contained — all JS, images and models inside"),
-                        (.ok, "≤ 200 MB · draws to fill 1280×720"),
+                        (.ok, "≤ 200 MB · draws to fill 1920×1080"),
                     ])
                     group("Won’t work — the sandbox blocks it", [
                         (.no, "No network / CDN — bundle MediaPipe or Three.js locally"),
@@ -581,10 +584,10 @@ private struct MaskGuideView: View {
        `type="module"`). Use plain inline `<script>`. If you need a library, paste its
        full minified UMD source straight into a `<script>` tag.
     3. No new windows, no navigation, no downloads, no audio.
-    4. Draw to a `<canvas width="1280" height="720">` that fills the page (16:9).
+    4. Draw to a `<canvas width="1920" height="1080">` that fills the page (16:9).
     5. Include `<button id="startBtn">` — MEETAMASK auto-clicks it to start.
-    6. Use the camera: navigator.mediaDevices.getUserMedia({ video: { width: 1280,
-       height: 720 } }), draw each frame to the canvas, then paint your effect with
+    6. Use the camera: navigator.mediaDevices.getUserMedia({ video: { width: 1920,
+       height: 1080 } }), draw each frame to the canvas, then paint your effect with
        Canvas 2D / WebGL and requestAnimationFrame.
     7. Do NOT mirror the output (the meeting app mirrors my self-view for me).
 

@@ -30,7 +30,9 @@ function loadScript(src) {
 // videoEl: a real <video> element MediaPipe's Camera attaches the stream to.
 // Returns a canvas that (a) receives every decoded camera frame and (b) acts like
 // a <video> so the rest of the runtime treats it as the camera source.
-export async function createEngineCamera(videoEl, { width = 1280, height = 720 } = {}) {
+// 1920x1080 matches the virtual-camera format (Shared.swift / engine/frame_geometry.h) and
+// what the physical Mac camera delivers — capturing smaller here softened every call.
+export async function createEngineCamera(videoEl, { width = 1920, height = 1080 } = {}) {
   await loadScript(MP_CAMERA);
   await loadScript(MP_HANDS);
 

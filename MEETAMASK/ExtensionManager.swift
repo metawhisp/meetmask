@@ -13,6 +13,19 @@ final class ExtensionManager: NSObject, ObservableObject {
     @Published private(set) var isBusy: Bool = false
     @Published private(set) var needsApproval: Bool = false
 
+    /// Ask macOS to install the BUNDLED extension once per launch. Without this the
+    /// installed extension is only ever replaced when the user happens to press
+    /// "Activate", so an app update silently keeps the old extension running — which
+    /// pinned the virtual camera to the old format (720p) after the 1080p update.
+    /// Requesting is cheap and idempotent: if the installed copy already matches the
+    /// bundled one macOS completes the request without prompting or replacing anything.
+    func activateIfNeeded() {
+        guard !hasRequestedThisLaunch else { return }
+        hasRequestedThisLaunch = true
+        activate()
+    }
+    private var hasRequestedThisLaunch = false
+
     func activate() {
         log("Requesting activation of \(Self.extensionIdentifier)…")
         isBusy = true
