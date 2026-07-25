@@ -55,6 +55,24 @@ ditto -c -k --keepParent build/dist/MEETAMASKEngine.app build/dist/MEETAMASKEngi
 #    EngineInstaller.sourceURL. Ship the stapled host app (zip/DMG).
 ```
 
+## ⚠️ Release invariant — ship BOTH assets, always
+
+`dl.meetamask.com/app` **and** `dl.meetamask.com/engine` both redirect to
+`releases/latest/download/<name>.zip`. The moment a new tag becomes `latest` it MUST already
+carry `MEETAMASK.zip` **and** `MEETAMASKEngine.zip`. Cutting a release with only the host made
+`/engine` return 404, so a first run on a clean Mac could not install the engine at all.
+
+Host and engine are ONE wire contract (the frame geometry is compiled into both, see
+`engine/frame_geometry.h` + `Shared/Shared.swift`) — never publish one without the matching
+other, and bump `EngineInstaller.engineContract` when that contract changes so existing
+installs re-download instead of silently dropping every frame.
+
+Check after every release:
+```bash
+curl -sIL https://dl.meetamask.com/app    | grep -i '^HTTP'   # must end 200/206
+curl -sIL https://dl.meetamask.com/engine | grep -i '^HTTP'   # must end 200/206
+```
+
 ## Verify (on this machine, and ideally a clean one)
 
 ```bash
