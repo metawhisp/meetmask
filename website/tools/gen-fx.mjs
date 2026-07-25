@@ -28,6 +28,7 @@ const existing = new Set([...fxBlock.matchAll(/([a-z0-9]+)\s*:\s*\[/gim)].map((m
 
 // keyword -> effect spec (source string). Mirror of HINTS in gallery-fx.js.
 const HINTS = [
+  [/six.?seven|\b6.?7\b|digit|number/, "['sixseven']"],
   [/laser|beam|ray|gaze/, "['beams']"],
   [/fire|flame|burn|breath|dragon|lava/, "['fire']"],
   [/thermal|heat|infrared/, "['recolor', 'thermal']"],

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "count": 47,
+  "count": 48,
   "masks": [
     {
       "id": "CatAttack",
@@ -33,6 +33,14 @@
       "subtitle": "SIX SPELLS, SIX GESTURES",
       "category": "HAND",
       "img": "assets/masks/gesturespells.webp"
+    },
+    {
+      "id": "SixSeven",
+      "slug": "sixseven",
+      "title": "SIX SEVEN",
+      "subtitle": "OPEN BOTH PALMS · 6 7 ERUPTS",
+      "category": "HAND",
+      "img": "assets/masks/sixseven.webp"
     },
     {
       "id": "PortalPull",

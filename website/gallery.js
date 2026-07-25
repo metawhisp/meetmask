@@ -1,4 +1,4 @@
-// Gallery — real catalog, static showcase. All 47 masks ship in the app.
+// Gallery — real catalog, static showcase. All 48 masks ship in the app.
 // Accounts / upload (Supabase) are deferred post-MVP — see _deferred/ + RELEASE-PLAN.md.
 // No localStorage "accounts", no localhost demo, no innerHTML of untrusted data.
 const $ = (s) => document.querySelector(s);

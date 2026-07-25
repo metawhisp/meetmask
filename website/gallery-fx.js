@@ -247,6 +247,35 @@
       if (mode === 'paint') { const cols = ['#ff5a8b', '#ffd23f', '#3ad0ff', '#7bed7b']; for (let s = 0; s < 4; s++) { c.strokeStyle = cols[s]; c.lineWidth = 1.4; c.beginPath(); for (let k = 0; k < 20; k++) { const th = t * 1.2 + s * 1.6, x = CX + Math.cos(th + k * 0.3) * (8 + k) * 0.9, y = 40 + Math.sin(th * 1.3 + k * 0.4) * (6 + k * 0.6); k === 0 ? c.moveTo(x, y) : c.lineTo(x, y); } c.stroke(); } }
       else { const cols = ['#ffd23f', '#ff5a8b', '#8a5cff', '#4ad0ff', '#7bed7b', '#fff']; for (let i = 0; i < 16; i++) { const a = i / 16 * TAU + t * 0.5, rr = 16 + 8 * Math.sin(t * 1.5 + i), x = CX + Math.cos(a) * rr, y = 40 + Math.sin(a) * rr * 1.1, tw = 0.5 + 0.5 * Math.sin(t * 6 + i * 1.7); if (tw < 0.3) continue; c.fillStyle = cols[i % cols.length]; c.fillRect(x, y - 1, 1, 3); c.fillRect(x - 1, y, 3, 1); } }
     },
+    sixseven(c, t, v) {
+      drawFace(c, v, t);
+      const rgb = (h, s, l) => { const q = hsv(h, s, l); return 'rgb(' + (q[0] | 0) + ',' + (q[1] | 0) + ',' + (q[2] | 0) + ')'; };
+      const hand = (hx) => { for (let i = 0; i < 4; i++) rect(c, hx - 4 + i * 2.3, 62, 1.7, 7, v.skin[3]); ell(c, hx, 71, 5.4, 5, v.skin[2]); };
+      hand(CX - 21); hand(CX + 21);                        // two open palms held up
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      for (let i = 0; i < 22; i++) {                        // digits erupting from the palms
+        const seed = hash('s7' + i), life = (seed + t * 0.55) % 1, side = i % 2 ? 1 : -1;
+        const a = -Math.PI / 2 + (seed - 0.5) * 2.1, d = life * 44;
+        const x = CX + side * 21 + Math.cos(a) * d * 0.95, y = 62 + Math.sin(a) * d;
+        const sz = 5 + seed * 5;
+        c.font = '900 ' + sz.toFixed(1) + 'px Arial Black, Arial, sans-serif';
+        c.globalAlpha = Math.min(1, (1 - life) * 2.2);
+        c.fillStyle = rgb((seed + t * 0.5) % 1, 0.95, 1);
+        c.fillText(i % 2 ? '7' : '6', x, y);
+      }
+      c.globalAlpha = 1;
+      const pulse = 1 + 0.1 * Math.sin(t * 8);
+      const big = (ch, x, hue) => {                         // giant neon 6 / 7 over each hand
+        const sz = 27 * pulse;
+        c.save(); c.translate(x, 27); c.rotate(Math.sin(t * 3 + hue * 6) * 0.12);
+        c.font = '900 ' + sz.toFixed(1) + 'px Arial Black, Arial, sans-serif';
+        c.lineJoin = 'round'; c.lineWidth = 2.6; c.strokeStyle = 'rgba(0,0,0,.85)';
+        c.strokeText(ch, 0, 0);
+        c.fillStyle = rgb((hue + t * 0.25) % 1, 0.95, 1); c.fillText(ch, 0, 0);
+        c.restore();
+      };
+      big('6', CX - 22, 0.86); big('7', CX + 22, 0.5);
+    },
     aura(c, t, v) {
       const hue = (t * 0.1) % 1; rect(c, 0, 0, PW, PH, '#0c0b0a');
       for (let k = 3; k >= 0; k--) { const rr = 16 + k * 7 + (t * 8) % 7, col = hsv(hue + k * 0.08, 0.8, 1); c.strokeStyle = 'rgba(' + (col[0] | 0) + ',' + (col[1] | 0) + ',' + (col[2] | 0) + ',' + (0.5 - k * 0.1) + ')'; c.lineWidth = 1.2; c.beginPath(); c.ellipse(CX, 42, rr, rr * 1.15, 0, 0, TAU); c.stroke(); }
@@ -287,7 +316,7 @@
       c.putImageData(im, 0, 0); c.fillStyle = 'rgba(120,255,240,.9)'; c.fillRect(0, yl, BW, SS); c.fillStyle = 'rgba(120,255,240,.25)'; c.fillRect(0, yl - 2 * SS, BW, 4 * SS);
     },
   };
-  const VECTOR = new Set(['beams', 'fire', 'feedback', 'echo', 'snow', 'rain', 'drip', 'icecream', 'mesh', 'dots', 'fill', 'stare', 'glasses', 'paw', 'sparkles', 'aura', 'bloom', 'shatter']);
+  const VECTOR = new Set(['beams', 'fire', 'feedback', 'echo', 'snow', 'rain', 'drip', 'icecream', 'mesh', 'dots', 'fill', 'stare', 'glasses', 'paw', 'sparkles', 'sixseven', 'aura', 'bloom', 'shatter']);
 
   // ---------- registry: slug -> [effectName, ...args] ----------
   const FX = {
@@ -301,11 +330,13 @@
     snowpile: ['snow'], linerain: ['rain'], facegravity: ['drip', 'melt'], icecream: ['icecream'],
     facemesh: ['mesh'], facedots: ['dots'], facefill: ['fill'], stareoff: ['stare'], glasses: ['glasses'], catattack: ['paw'],
     gesturespells: ['sparkles', 'spell'], fingerpaint: ['sparkles', 'paint'], aurascan: ['aura'], bloom: ['bloom'],
+    sixseven: ['sixseven'],
     portalpull: ['portal'], realitytear: ['shatter', '#7c6bff'], shards: ['shatter', '#35d07f'], scan: ['scanreveal'],
   };
 
   // ---------- auto: new filters get a matching effect from name/keywords (keep gen-fx.mjs in sync) ----------
   const HINTS = [
+    [/six.?seven|\b6.?7\b|digit|number/, ['sixseven']],
     [/laser|beam|ray|gaze/, ['beams']],
     [/fire|flame|burn|breath|dragon|lava/, ['fire']],
     [/thermal|heat|infrared/, ['recolor', 'thermal']],
