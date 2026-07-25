@@ -56,6 +56,7 @@ import faceGravity   from './registry/faceGravity.js';
 import auraScan      from './registry/auraScan.js';
 import headbang      from './registry/headbang.js';
 import portalPull    from './registry/portalPull.js';
+import sixSeven      from './registry/sixSeven.js';
 import stareOff      from './registry/stareOff.js';
 import poseStages    from './registry/poseStages.js';
 import sandbox       from './registry/sandbox.js';
@@ -74,7 +75,7 @@ import feedback     from './registry/feedback.js';
 
 const RAW = [
   // VIRAL — adding back one at a time.
-  catAttack, snowPile, realityTear, gestureSpells, portalPull, sandbox,
+  catAttack, snowPile, realityTear, gestureSpells, sixSeven, portalPull, sandbox,
   callWrapped, chomp, faceOff, faceSimon, goblin, leanIn,
   faceGravity, headbang, auraScan, stareOff, poseStages, timeEcho,
   // Narrative AR (3D objects + physics + gestures).

@@ -50,6 +50,7 @@
 {"id":"sandbox","tags":["face","hands","gesture","fun","motion"],"blurb":"Physics balls you bat around with head tilt and hands"},
 {"id":"scan","tags":["subtle","filter","motion"],"blurb":"Glowing line reveals hidden video"},
 {"id":"shards","tags":["glitch","edges","motion"],"blurb":"Voronoi shards explode from cursor"},
+{"id":"sixseven","tags":["hands","gesture","fun","motion"],"blurb":"Show the 6-7 pose — giant neon 6 and 7 erupt from your palms"},
 {"id":"snowpile","tags":["fun","face","motion"],"blurb":"Snowflakes stick to your face, shake to clear"},
 {"id":"stareoff","tags":["face","tracking","fun"],"blurb":"Blink detection game with eye outlines"},
 {"id":"thermal","tags":["color","filter","motion"],"blurb":"Luminance-mapped thermal palette with cursor heat"},
