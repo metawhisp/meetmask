@@ -94,7 +94,7 @@ final class EngineFrameReceiver: ObservableObject {
         // Camera connection — ONCE, kept alive across engine restarts.
         guard feeder.connect() else {
             releaseSHM()                      // ditto: this start never got off the ground
-            setStatus("Камера не найдена. Расширение активно?")
+            setStatus("Камера не найдена. Если только что обновил приложение — перезагрузи Mac: расширение камеры доустанавливается при перезапуске.")
             dbg("feeder.connect() FAILED")
             return
         }

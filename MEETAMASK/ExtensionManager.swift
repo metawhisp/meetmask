@@ -12,6 +12,9 @@ final class ExtensionManager: NSObject, ObservableObject {
     @Published private(set) var statusLog: String = ""
     @Published private(set) var isBusy: Bool = false
     @Published private(set) var needsApproval: Bool = false
+    /// True once macOS has told us the extension swap only finishes on restart. Until then
+    /// the virtual camera is absent from every app — the UI must say so, not stay silent.
+    @Published private(set) var needsReboot: Bool = false
 
     /// Ask macOS to install the BUNDLED extension once per launch. Without this the
     /// installed extension is only ever replaced when the user happens to press
@@ -73,7 +76,12 @@ extension ExtensionManager: OSSystemExtensionRequestDelegate {
         case .completed:
             log("Done. The “MEETAMASK Camera” should now be available in camera apps.")
         case .willCompleteAfterReboot:
-            log("Will complete after reboot.")
+            // Replacing an already-installed camera extension: macOS keeps the OLD one
+            // registered ("waiting to uninstall on reboot") and will not publish the new
+            // provider until restart — so the virtual camera DISAPPEARS in the meantime.
+            // Surface that instead of letting the user hit a vague "camera not found".
+            needsReboot = true
+            log("Will complete after reboot — the MEETAMASK Camera returns after a restart.")
         @unknown default:
             log("Finished with result code \(result.rawValue).")
         }

@@ -75,7 +75,7 @@ final class MaskStudio: NSObject, ObservableObject, WKUIDelegate, WKNavigationDe
     func startBroadcast() {
         if feeder.isFeeding { feeder.stop() }
         guard feeder.connect() else {
-            status = "Камера не найдена. Расширение активно?"
+            status = "Камера не найдена. Если только что обновил приложение — перезагрузи Mac: расширение камеры доустанавливается при перезапуске."
             return
         }
         let timer = DispatchSource.makeTimerSource(queue: .main)   // takeSnapshot must run on main
