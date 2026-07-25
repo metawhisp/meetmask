@@ -34,7 +34,11 @@
   var v = document.querySelector('.input_video');
   var c = document.getElementById('c');
   var x = c.getContext('2d');
-  var W = 1280, H = 720, t = 0, running = false;
+  // Match the real viewport (engine renders 1920x1080) instead of a fixed 720p box.
+  var W = Math.max(2, Math.round(window.innerWidth  || 1280));
+  var H = Math.max(2, Math.round(window.innerHeight || 720));
+  c.width = W; c.height = H;
+  var t = 0, running = false;
 
   function hideIntro() {
     ['startBtn', 'title'].forEach(function (id) { var e = document.getElementById(id); if (e) e.style.display = 'none'; });
@@ -80,7 +84,7 @@
       hands.onResults(onResults);
       var cam = new Camera(v, {
         onFrame: async function () { await hands.send({ image: v }); },
-        width: 1280, height: 720, facingMode: 'user'
+        width: W, height: H, facingMode: 'user'
       });
       cam.start();
       console.log('MEETAMASK studio: pump started');

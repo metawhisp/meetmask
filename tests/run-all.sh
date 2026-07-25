@@ -13,6 +13,7 @@ fail=0
 
 echo "▸ IP guard — no Homelander in the bundle"
 bash tests/no_homelander_test.sh || fail=1
+bash tests/geometry-parity.sh || fail=1
 
 echo "▸ Mask policy — arbitrary user HTML is never loaded"
 if swiftc MEETAMASK/MaskLibrary.swift tests/main.swift -o "$TMP/masktest"; then

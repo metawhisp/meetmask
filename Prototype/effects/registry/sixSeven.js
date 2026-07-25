@@ -75,21 +75,24 @@ class DigitPool {
     this.particles = Array.from({ length: capacity }, () => ({ life: 0 }));
   }
 
-  spawn(px, py, hue) {
+  // `k` scales every pixel-space quantity to the real frame height (tuned at 720p),
+  // so the mask looks identical at 1080p instead of shrinking to 2/3.
+  spawn(px, py, hue, k = 1) {
     const s = this.particles.find((p) => p.life <= 0);
     if (!s) return;
     const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;      // mostly upward-fan
-    const sp = 120 + Math.random() * 260;
+    const sp = (120 + Math.random() * 260) * k;
     s.life = s.maxLife = 0.7 + Math.random() * 0.5;
     s.age = 0;
-    s.x = px + (Math.random() - 0.5) * 40;
-    s.y = py + (Math.random() - 0.5) * 30;
+    s.x = px + (Math.random() - 0.5) * 40 * k;
+    s.y = py + (Math.random() - 0.5) * 30 * k;
     s.vx = Math.cos(a) * sp;
-    s.vy = Math.sin(a) * sp - 60;
+    s.vy = Math.sin(a) * sp - 60 * k;
     s.rot = (Math.random() - 0.5) * 0.8;
     s.rotV = (Math.random() - 0.5) * 8;
-    s.size = 34 + Math.random() * 30;
+    s.size = (34 + Math.random() * 30) * k;
     s.hue = hue + (Math.random() - 0.5) * 0.12;
+    s.k = k;
   }
 
   update(dt) {
@@ -99,7 +102,7 @@ class DigitPool {
       if (p.life <= 0) { this.mesh.setMatrixAt(i, hide); continue; }
       p.life -= dt; p.age += dt;
       if (p.life <= 0) { this.mesh.setMatrixAt(i, hide); continue; }
-      p.vy += 520 * dt; p.vx *= 0.99;
+      p.vy += 520 * (p.k || 1) * dt; p.vx *= 0.99;   // gravity in the same scaled pixel space
       p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.rotV * dt;
       const t = p.life / p.maxLife;                 // 1 fresh -> 0 dead
       const grow = Math.min(1, p.age / 0.12);        // pop in
@@ -139,13 +142,13 @@ class SparklePool {
     this.particles = Array.from({ length: capacity }, () => ({ life: 0 }));
   }
 
-  spawn(px, py) {
+  spawn(px, py, k = 1) {
     const s = this.particles.find((p) => p.life <= 0);
     if (!s) return;
-    const a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 200;
+    const a = Math.random() * Math.PI * 2, sp = (40 + Math.random() * 200) * k;
     s.life = s.maxLife = 0.4 + Math.random() * 0.4; s.age = 0;
     s.x = px; s.y = py; s.vx = Math.cos(a) * sp; s.vy = Math.sin(a) * sp;
-    s.size = 3 + Math.random() * 5; s.hue = Math.random();
+    s.size = (3 + Math.random() * 5) * k; s.hue = Math.random(); s.k = k;
   }
 
   update(dt) {
@@ -155,7 +158,7 @@ class SparklePool {
       if (p.life <= 0) { this.mesh.setMatrixAt(i, hide); continue; }
       p.life -= dt; p.age += dt;
       if (p.life <= 0) { this.mesh.setMatrixAt(i, hide); continue; }
-      p.vy += 120 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vy += 120 * (p.k || 1) * dt; p.x += p.vx * dt; p.y += p.vy * dt;
       const t = p.life / p.maxLife;
       this.col.setHSL(p.hue, 0.9, 0.6 + 0.3 * Math.random());
       this.mesh.instanceColor.setXYZ(i, this.col.r * t, this.col.g * t, this.col.b * t);
@@ -184,7 +187,7 @@ class Anchor {
     this.present = 0; this.x = 0; this.y = 0;
   }
 
-  update(dt, active, px, py, hue) {
+  update(dt, active, px, py, hue, k = 1) {
     this.present += (active ? 10 : -9) * dt;
     this.present = Math.max(0, Math.min(1, this.present));
     if (active) { this.x = px; this.y = py; }
@@ -192,7 +195,7 @@ class Anchor {
     if (p <= 0.001) { this.glow.visible = this.core.visible = false; return; }
     this.glow.visible = this.core.visible = true;
     const t = performance.now() / 1000;
-    const base = 150, pulse = 1 + 0.12 * Math.sin(t * 9);
+    const base = 150 * k, pulse = 1 + 0.12 * Math.sin(t * 9);
     // ease-out-back pop
     const ease = p < 1 ? 1 - Math.pow(1 - p, 3) : 1;
     const s = base * ease * pulse;
@@ -219,6 +222,8 @@ class SixSeven extends Tracker {
   }
 
   async setup(ctx) {
+    // Everything below is tuned in 720p pixel space; k rescales it to the real frame.
+    this.k = Math.max(0.5, (ctx.height || 720) / 720);
     this.tex6 = digitTexture('6');
     this.tex7 = digitTexture('7');
     this.pool6 = new DigitPool(ctx.scene, this.tex6, 90);
@@ -246,12 +251,12 @@ class SixSeven extends Tracker {
       left = open[0];
       right = open[open.length - 1];
       // Numbers ride a little ABOVE the palms so the hands stay visible.
-      const yOff = 70;
+      const yOff = 70 * this.k;
       // Onset burst — the "moment".
       if (!this.wasActive) {
         for (const h of [left, right]) {
-          for (let i = 0; i < 14; i++) this.sparks.spawn(h.px, h.py - yOff);
-          for (let i = 0; i < 5; i++) { this.pool6.spawn(h.px, h.py - yOff, 0.86); this.pool7.spawn(h.px, h.py - yOff, 0.5); }
+          for (let i = 0; i < 14; i++) this.sparks.spawn(h.px, h.py - yOff, this.k);
+          for (let i = 0; i < 5; i++) { this.pool6.spawn(h.px, h.py - yOff, 0.86, this.k); this.pool7.spawn(h.px, h.py - yOff, 0.5, this.k); }
         }
       }
       // Steady emission from both hands while held.
@@ -259,21 +264,26 @@ class SixSeven extends Tracker {
       while (this.emit >= 1) {
         this.emit -= 1;
         for (const h of [left, right]) {
-          this.pool6.spawn(h.px, h.py - yOff, 0.86);
-          this.pool7.spawn(h.px, h.py - yOff, 0.5);
-          this.sparks.spawn(h.px + (Math.random() - 0.5) * 60, h.py - yOff + (Math.random() - 0.5) * 60);
+          this.pool6.spawn(h.px, h.py - yOff, 0.86, this.k);
+          this.pool7.spawn(h.px, h.py - yOff, 0.5, this.k);
+          this.sparks.spawn(h.px + (Math.random() - 0.5) * 60 * this.k, h.py - yOff + (Math.random() - 0.5) * 60 * this.k, this.k);
         }
       }
-      this.anchor6.update(dt, true, left.px, left.py - yOff, 0.86);
-      this.anchor7.update(dt, true, right.px, right.py - yOff, 0.5);
+      this.anchor6.update(dt, true, left.px, left.py - yOff, 0.86, this.k);
+      this.anchor7.update(dt, true, right.px, right.py - yOff, 0.5, this.k);
     } else {
-      this.anchor6.update(dt, false, 0, 0, 0.86);
-      this.anchor7.update(dt, false, 0, 0, 0.5);
+      this.anchor6.update(dt, false, 0, 0, 0.86, this.k);
+      this.anchor7.update(dt, false, 0, 0, 0.5, this.k);
     }
     this.wasActive = active;
 
     this.pool6.update(dt); this.pool7.update(dt); this.sparks.update(dt);
     this.ctx.setHud(active ? 'SIX SEVEN 🔥 6️⃣7️⃣' : 'SIX SEVEN — hold up both open palms');
+  }
+
+  resize(w, h) {
+    super.resize(w, h);
+    this.k = Math.max(0.5, (h || 720) / 720);
   }
 
   teardown() {

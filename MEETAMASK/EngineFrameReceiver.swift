@@ -80,7 +80,10 @@ final class EngineFrameReceiver: ObservableObject {
         guard fd >= 0 else { setStatus("shm open failed"); return }
         ftruncate(fd, off_t(total))
         let mapped = mmap(nil, total, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)
-        guard let mapped = mapped, mapped != MAP_FAILED else { setStatus("mmap failed"); return }
+        guard let mapped = mapped, mapped != MAP_FAILED else {
+            releaseSHM()                      // don't leak the fd + on-disk file on a failed start
+            setStatus("mmap failed"); return
+        }
         base = mapped
         resetHeader()           // clear header so we don't read a stale frame
         lastSeq = 0
@@ -90,6 +93,7 @@ final class EngineFrameReceiver: ObservableObject {
 
         // Camera connection — ONCE, kept alive across engine restarts.
         guard feeder.connect() else {
+            releaseSHM()                      // ditto: this start never got off the ground
             setStatus("Камера не найдена. Расширение активно?")
             dbg("feeder.connect() FAILED")
             return
@@ -201,8 +205,7 @@ final class EngineFrameReceiver: ObservableObject {
         frameQueue.sync {
             if let p = self.process { self.waitForExit(p, timeout: 1.5) }   // old writer dead before teardown
             self.process = nil
-            if let b = self.base { munmap(b, self.total); self.base = nil }
-            if self.fd >= 0 { close(self.fd); self.fd = -1 }
+            self.releaseSHM()
         }
         feeder.disconnect()
         if let a = activity { ProcessInfo.processInfo.endActivity(a); activity = nil }
@@ -210,6 +213,15 @@ final class EngineFrameReceiver: ObservableObject {
         switching = false
         os_log("receiver: stopped (feeder disconnected)", log: log, type: .info)
         DispatchQueue.main.async { self.previewImage = nil }
+    }
+
+    /// Release the shared-memory mapping, its fd AND the backing file. The path is unique per
+    /// session, so leaving it behind leaked one 8.3 MB file in /tmp per run (they only vanish
+    /// on reboot). Safe to call twice.
+    private func releaseSHM() {
+        if let b = base { munmap(b, total); base = nil }
+        if fd >= 0 { close(fd); fd = -1 }
+        unlink(shmPath)
     }
 
     private func tick() {

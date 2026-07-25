@@ -22,6 +22,8 @@
 
 #include <atomic>
 #include <thread>
+#include "../frame_geometry.h"
+
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -31,10 +33,11 @@
 #include <unistd.h>
 
 namespace {
-constexpr int kW = 1280, kH = 720;
+// Exercise the SHIPPED geometry, not a stale copy of it.
+constexpr int kW = mm::kFrameWidth, kH = mm::kFrameHeight;
 constexpr size_t kWords = static_cast<size_t>(kW) * kH;
 constexpr size_t kData = kWords * 4;
-constexpr size_t kTotal = 16 + 1280u * 720u * 4u;
+constexpr size_t kTotal = 16 + kData;
 constexpr uint64_t kFrames = 1500;
 
 inline uint64_t loadSeq(volatile uint8_t* b) { return *reinterpret_cast<volatile uint64_t*>(b); }
@@ -46,6 +49,7 @@ bool naiveRead(volatile uint8_t* rb, uint64_t* last, uint8_t* dst, int* outW, in
   *last = s;
   uint32_t w = loadU32(rb, 8), h = loadU32(rb, 12);
   size_t bytes = static_cast<size_t>(w) * h * 4u;
+  if (w != (uint32_t)kW || h != (uint32_t)kH) return false;   // production rejects any other size
   if (bytes == 0 || bytes > kData) return false;
   memcpy(dst, const_cast<const uint8_t*>(rb + 16), bytes);
   *outW = (int)w; *outH = (int)h;
@@ -60,7 +64,8 @@ bool seqlockRead(volatile uint8_t* rb, uint64_t* last, uint8_t* dst, int* outW, 
     __sync_synchronize();
     uint32_t w = loadU32(rb, 8), h = loadU32(rb, 12);
     size_t bytes = static_cast<size_t>(w) * h * 4u;
-    if (bytes == 0 || bytes > kData) return false;
+    if (w != (uint32_t)kW || h != (uint32_t)kH) return false;   // production rejects any other size
+  if (bytes == 0 || bytes > kData) return false;
     memcpy(dst, const_cast<const uint8_t*>(rb + 16), bytes);
     __sync_synchronize();
     if (loadSeq(rb) == s1) { *last = s1; *outW = (int)w; *outH = (int)h; return true; }
