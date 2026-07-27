@@ -61,6 +61,17 @@ final class EngineFrameReceiver: ObservableObject {
     private let log = OSLog(subsystem: "com.meetamask.app", category: "receiver")
 
     init() {
+        // A SIGKILL (or a crash) skips every teardown path we control, stranding an 8.3 MB
+        // file per run until reboot. Sweep buffers older than an hour at startup — a live
+        // one is always younger, so this can never touch a running session's buffer.
+        let fm = FileManager.default
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+        let cutoff = Date().addingTimeInterval(-3600)
+        for f in (try? fm.contentsOfDirectory(at: tmp, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        where f.lastPathComponent.hasPrefix("meetamask-frame-") {
+            let modified = (try? f.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            if let m = modified, m < cutoff { try? fm.removeItem(at: f) }
+        }
         // Quitting (⌘Q) or closing the window while ON AIR used to skip stop() entirely: the
         // CEF engine kept running, the camera stayed claimed and an 8.3 MB /tmp file stayed
         // behind until reboot. Tear down on the way out.
@@ -311,10 +322,11 @@ final class EngineFrameReceiver: ObservableObject {
             // Copy out (into a CVPixelBuffer, and optionally the preview image) while
             // the frame is believed stable…
             let sbuf = feeder.makeSampleBuffer(fromBGRA: data, width: w, height: h)
-            // The preview is a small thumbnail in the app window — building a full 8.3 MB
-            // NSImage 15x/s (~124 MB/s) and firing each one at the main queue could pile up
-            // unbounded if the main thread stalls. Downscale, and never queue more than one.
-            let img = (!previewPending && frameCount % 6 == 0) ? Self.makePreview(data, w, h) : nil
+            // Preview runs at the FULL frame rate — it is the user's monitor of their own
+            // face, and a throttled one just looks broken. It is cheap because it never
+            // copies the 1080p frame: a no-copy CGImage is downscaled straight into a
+            // reused 480px context. Still coalesced, so a stalled main thread can't pile up.
+            let img = previewPending ? nil : makePreview(data, w, h)
             OSMemoryBarrier()
             // …then verify no write started during the copy. If it did, discard and retry.
             if base.load(fromByteOffset: 0, as: UInt64.self) != s1 { usleep(300); continue }
@@ -353,19 +365,32 @@ final class EngineFrameReceiver: ObservableObject {
     /// thumbnail, so the full 1080p frame is downscaled here (once, on the frame queue)
     /// instead of shipping 8.3 MB to the main thread and letting AppKit scale it.
     private static let previewSpace = CGColorSpaceCreateDeviceRGB()   // one, not one per frame
-    private static func makePreview(_ data: UnsafeRawPointer, _ w: Int, _ h: Int) -> NSImage? {
-        let bitmapInfo = CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        guard let src = CGContext(data: UnsafeMutableRawPointer(mutating: data),
-                                  width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
-                                  space: previewSpace, bitmapInfo: bitmapInfo),
-              let full = src.makeImage() else { return nil }
-        let pw = 480, ph = max(1, h * 480 / max(1, w))
-        guard let dst = CGContext(data: nil, width: pw, height: ph, bitsPerComponent: 8,
-                                  bytesPerRow: 0, space: previewSpace, bitmapInfo: bitmapInfo)
-        else { return NSImage(cgImage: full, size: NSSize(width: w, height: h)) }
-        dst.interpolationQuality = .medium
+    private static let previewInfo = CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+    private static let previewWidth = 480
+    private var previewCtx: CGContext?          // frameQueue-owned, allocated once
+
+    private func makePreview(_ data: UnsafeRawPointer, _ w: Int, _ h: Int) -> NSImage? {
+        // Wrap the shm bytes with NO copy — the earlier version snapshotted the whole 1080p
+        // frame (8.3 MB memcpy) just to shrink it. The CGImage is used and discarded inside
+        // this call, while the seqlock still guarantees the bytes are stable.
+        guard let provider = CGDataProvider(dataInfo: nil, data: data, size: w * h * 4,
+                                            releaseData: { _, _, _ in }),
+              let full = CGImage(width: w, height: h, bitsPerComponent: 8, bitsPerPixel: 32,
+                                 bytesPerRow: w * 4, space: Self.previewSpace,
+                                 bitmapInfo: CGBitmapInfo(rawValue: Self.previewInfo),
+                                 provider: provider, decode: nil, shouldInterpolate: false,
+                                 intent: .defaultIntent)
+        else { return nil }
+        let pw = Self.previewWidth, ph = max(1, h * Self.previewWidth / max(1, w))
+        if previewCtx == nil || previewCtx?.width != pw || previewCtx?.height != ph {
+            previewCtx = CGContext(data: nil, width: pw, height: ph, bitsPerComponent: 8,
+                                   bytesPerRow: 0, space: Self.previewSpace,
+                                   bitmapInfo: Self.previewInfo)
+            previewCtx?.interpolationQuality = .low   // 4x downscale — nobody can tell
+        }
+        guard let dst = previewCtx else { return nil }
         dst.draw(full, in: CGRect(x: 0, y: 0, width: pw, height: ph))
-        guard let small = dst.makeImage() else { return nil }
+        guard let small = dst.makeImage() else { return nil }   // copies 0.5 MB, not 8.3
         return NSImage(cgImage: small, size: NSSize(width: pw, height: ph))
     }
 
