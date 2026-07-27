@@ -29,4 +29,11 @@ case "$contract" in
   *) fail "engineContract '$contract' does not mention ${sw_w}x${sw_h}" ;;
 esac
 
-echo "✅ geometry parity: ${sw_w}x${sw_h} agreed by Shared.swift, frame_geometry.h and engineContract ('$contract')"
+# The engine DECLARES its contract in its Info.plist; the installer rejects a downloaded
+# engine whose declaration doesn't match the host. If the two strings ever drift, every
+# install fails — so they are checked together, here.
+declared=$(grep -A1 '<key>MMEngineContract</key>' engine/mac/Info.plist.in | grep -oE '<string>[^<]+' | sed 's/<string>//')
+[ -n "$declared" ] || fail "engine/mac/Info.plist.in has no MMEngineContract key"
+[ "$declared" = "$contract" ] || fail "engine declares '$declared', host expects '$contract'"
+
+echo "✅ geometry parity: ${sw_w}x${sw_h} agreed by Shared.swift, frame_geometry.h, engineContract and the engine's Info.plist ('$contract')"

@@ -23,7 +23,11 @@ else
 fi
 
 echo "▸ Seqlock — shared-memory frame hand-off is tear-free"
-clang++ -std=c++17 -O2 engine/frame_shm.mm engine/test/seqlock_test.mm -o "$TMP/seqtest"
+if ! clang++ -std=c++17 -O2 engine/frame_shm.mm engine/test/seqlock_test.mm -o "$TMP/seqtest"; then
+  # Without this, a compile error left rc=127 ("no such file") — which the retry loop below
+  # counted as "inconclusive" and the suite then reported as a PASS.
+  echo "  FAIL: seqlock test did not compile"; fail=1
+fi
 # Exit codes: 0 = pass, 1 = real seqlock tear (regression), 2 = inconclusive
 # (workload didn't race this run — retry, not a regression).
 seq_done=0

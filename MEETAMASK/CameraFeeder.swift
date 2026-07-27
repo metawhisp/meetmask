@@ -62,6 +62,13 @@ final class CameraFeeder: NSObject, ObservableObject {
     func disconnect() {
         readinessTimer?.invalidate(); readinessTimer = nil
         if let dev = deviceID, let sink = sinkStreamID { CMIODeviceStopStream(dev, sink) }
+        // Frames are enqueued with passRetained: whatever the sink never consumed is still
+        // holding an 8.3 MB pixel buffer. Release them instead of dropping the queue on them.
+        if let q = sinkQueue {
+            while let raw = CMSimpleQueueDequeue(q) {
+                Unmanaged<CMSampleBuffer>.fromOpaque(raw).release()
+            }
+        }
         sinkQueue = nil
         sinkReady = false
         connected = false
@@ -83,7 +90,7 @@ final class CameraFeeder: NSObject, ObservableObject {
     }
 
     /// Wrap a raw tightly-packed BGRA buffer (from the engine's shared memory) into a
-    /// 1280×720 sample buffer using the shared pool.
+    /// fixed-format sample buffer (see Shared.swift) using the shared pool.
     func makeSampleBuffer(fromBGRA bytes: UnsafeRawPointer, width: Int, height: Int) -> CMSampleBuffer? {
         guard let pool = pool, let fmt = formatDescription else { return nil }
         var pixelBuffer: CVPixelBuffer?
@@ -112,7 +119,7 @@ final class CameraFeeder: NSObject, ObservableObject {
         return err == noErr ? sbuf : nil
     }
 
-    /// Wrap a rendered image into a 1280×720 BGRA sample buffer using the shared pool.
+    /// Wrap a rendered image into a fixed-format BGRA sample buffer using the shared pool.
     func makeSampleBuffer(from image: NSImage) -> CMSampleBuffer? {
         guard let pool = pool, let fmt = formatDescription else { return nil }
         var pixelBuffer: CVPixelBuffer?
@@ -210,7 +217,10 @@ final class CameraFeeder: NSObject, ObservableObject {
         guard CMIODeviceStartStream(devID, sink) == noErr else {
             os_log(.error, "MEETAMASK feeder: CMIODeviceStartStream failed"); return false
         }
-        sinkQueue = unmanaged.takeUnretainedValue()
+        // CMIOStreamCopyBufferQueue follows the Copy rule: it hands back a +1 reference.
+        // takeUnretainedValue() dropped that reference on the floor, leaking one queue per
+        // ON AIR toggle; takeRetainedValue() hands ownership to ARC.
+        sinkQueue = unmanaged.takeRetainedValue()
         return true
     }
 

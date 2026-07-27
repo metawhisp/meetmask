@@ -49,6 +49,10 @@ function digitTexture(ch) {
   return tex;
 }
 
+// Reused across every update(): allocating a Matrix4 per frame per pool (and a Color per
+// anchor per frame) is pure GC pressure in a process whose only job is 30 fps.
+const HIDE = new THREE.Matrix4().makeScale(0, 0, 0);
+
 // ---------------------------------------------------------------------------
 // Instanced pool of flying digits. Each slot pops in, arcs out under gravity,
 // spins, cycles hue, and shrinks out over the tail of its life.
@@ -65,8 +69,7 @@ class DigitPool {
     this.mesh.frustumCulled = false;
     this.mesh.count = capacity;
     this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
-    const hide = new THREE.Matrix4().makeScale(0, 0, 0);
-    for (let i = 0; i < capacity; i++) { this.mesh.setMatrixAt(i, hide); this.mesh.instanceColor.setXYZ(i, 1, 1, 1); }
+    for (let i = 0; i < capacity; i++) { this.mesh.setMatrixAt(i, HIDE); this.mesh.instanceColor.setXYZ(i, 1, 1, 1); }
     this.mesh.instanceMatrix.needsUpdate = true;
     this.mesh.instanceColor.needsUpdate = true;
     scene.add(this.mesh);
@@ -96,12 +99,11 @@ class DigitPool {
   }
 
   update(dt) {
-    const hide = new THREE.Matrix4().makeScale(0, 0, 0);
     for (let i = 0; i < this.capacity; i++) {
       const p = this.particles[i];
-      if (p.life <= 0) { this.mesh.setMatrixAt(i, hide); continue; }
+      if (p.life <= 0) { this.mesh.setMatrixAt(i, HIDE); continue; }
       p.life -= dt; p.age += dt;
-      if (p.life <= 0) { this.mesh.setMatrixAt(i, hide); continue; }
+      if (p.life <= 0) { this.mesh.setMatrixAt(i, HIDE); continue; }
       p.vy += 520 * (p.k || 1) * dt; p.vx *= 0.99;   // gravity in the same scaled pixel space
       p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.rotV * dt;
       const t = p.life / p.maxLife;                 // 1 fresh -> 0 dead
@@ -120,7 +122,7 @@ class DigitPool {
     this.mesh.instanceColor.needsUpdate = true;
   }
 
-  dispose(scene) { this.mesh.geometry.dispose(); this.mat.dispose(); scene.remove(this.mesh); }
+  dispose(scene) { scene.remove(this.mesh); this.mesh.dispose(); this.mesh.geometry.dispose(); this.mat.dispose(); }
 }
 
 // ---------------------------------------------------------------------------
@@ -134,8 +136,7 @@ class SparklePool {
     this.mesh = new THREE.InstancedMesh(geo, this.mat, capacity);
     this.mesh.frustumCulled = false; this.mesh.count = capacity;
     this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
-    const hide = new THREE.Matrix4().makeScale(0, 0, 0);
-    for (let i = 0; i < capacity; i++) { this.mesh.setMatrixAt(i, hide); }
+    for (let i = 0; i < capacity; i++) { this.mesh.setMatrixAt(i, HIDE); }
     this.mesh.instanceMatrix.needsUpdate = true;
     scene.add(this.mesh);
     this.dummy = new THREE.Object3D(); this.col = new THREE.Color();
@@ -152,12 +153,11 @@ class SparklePool {
   }
 
   update(dt) {
-    const hide = new THREE.Matrix4().makeScale(0, 0, 0);
     for (let i = 0; i < this.capacity; i++) {
       const p = this.particles[i];
-      if (p.life <= 0) { this.mesh.setMatrixAt(i, hide); continue; }
+      if (p.life <= 0) { this.mesh.setMatrixAt(i, HIDE); continue; }
       p.life -= dt; p.age += dt;
-      if (p.life <= 0) { this.mesh.setMatrixAt(i, hide); continue; }
+      if (p.life <= 0) { this.mesh.setMatrixAt(i, HIDE); continue; }
       p.vy += 120 * (p.k || 1) * dt; p.x += p.vx * dt; p.y += p.vy * dt;
       const t = p.life / p.maxLife;
       this.col.setHSL(p.hue, 0.9, 0.6 + 0.3 * Math.random());
@@ -171,7 +171,7 @@ class SparklePool {
     this.mesh.instanceColor.needsUpdate = true;
   }
 
-  dispose(scene) { this.mesh.geometry.dispose(); this.mat.dispose(); scene.remove(this.mesh); }
+  dispose(scene) { scene.remove(this.mesh); this.mesh.dispose(); this.mesh.geometry.dispose(); this.mat.dispose(); }
 }
 
 // One giant number that rides a hand: a bright tinted glyph + an additive glow
@@ -185,6 +185,7 @@ class Anchor {
     this.core = new THREE.Mesh(geo, this.coreMat); this.core.position.z = 7; this.core.visible = false;
     scene.add(this.glow); scene.add(this.core);
     this.present = 0; this.x = 0; this.y = 0;
+    this.col = new THREE.Color();   // reused, not one per frame
   }
 
   update(dt, active, px, py, hue, k = 1) {
@@ -199,9 +200,9 @@ class Anchor {
     // ease-out-back pop
     const ease = p < 1 ? 1 - Math.pow(1 - p, 3) : 1;
     const s = base * ease * pulse;
-    const col = new THREE.Color().setHSL((hue + t * 0.25) % 1, 0.95, 0.6);
-    this.coreMat.color.copy(col);
-    this.glowMat.color.copy(col);
+    this.col.setHSL((hue + t * 0.25) % 1, 0.95, 0.6);
+    this.coreMat.color.copy(this.col);
+    this.glowMat.color.copy(this.col);
     this.glowMat.opacity = 0.55 * p;
     const rot = Math.sin(t * 3 + hue * 6) * 0.14;
     for (const [mesh, sc] of [[this.glow, 1.28], [this.core, 1.0]]) {
@@ -290,6 +291,10 @@ class SixSeven extends Tracker {
     const scene = this.ctx?.scene;
     if (!scene) return;
     for (const o of [this.pool6, this.pool7, this.sparks, this.anchor6, this.anchor7]) o?.dispose(scene);
+    // The two baked glyph textures are shared by the pools AND the anchors, so no pool owns
+    // them — without this every mask switch left a 128×128 GPU texture behind.
+    this.tex6?.dispose(); this.tex7?.dispose();
+    this.tex6 = this.tex7 = null;
     this.pool6 = this.pool7 = this.sparks = this.anchor6 = this.anchor7 = null;
   }
 }

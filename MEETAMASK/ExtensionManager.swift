@@ -15,6 +15,8 @@ final class ExtensionManager: NSObject, ObservableObject {
     /// True once macOS has told us the extension swap only finishes on restart. Until then
     /// the virtual camera is absent from every app — the UI must say so, not stay silent.
     @Published private(set) var needsReboot: Bool = false
+    /// True when the app is not in /Applications, so the camera extension can never install.
+    @Published private(set) var needsMove: Bool = false
 
     /// Ask macOS to install the BUNDLED extension once per launch. Without this the
     /// installed extension is only ever replaced when the user happens to press
@@ -29,7 +31,19 @@ final class ExtensionManager: NSObject, ObservableObject {
     }
     private var hasRequestedThisLaunch = false
 
+    /// macOS refuses to install a system extension from an app outside /Applications. Run from
+    /// ~/Downloads (where a freshly unzipped app lands) the request just fails, and the old
+    /// failure tip talked about `systemextensionsctl developer on` — useless to a real user.
+    static var isInApplications: Bool {
+        Bundle.main.bundleURL.path.hasPrefix("/Applications/")
+    }
+
     func activate() {
+        guard Self.isInApplications else {
+            needsMove = true
+            log("MEETAMASK is running from \(Bundle.main.bundleURL.deletingLastPathComponent().path) — macOS only installs camera extensions from /Applications.")
+            return
+        }
         log("Requesting activation of \(Self.extensionIdentifier)…")
         isBusy = true
         needsApproval = false

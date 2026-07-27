@@ -27,3 +27,6 @@ node_modules/
 # Local tooling / generated
 .claude/
 *.xcodeproj/
+
+# Wrangler local state (generated)
+.wrangler/

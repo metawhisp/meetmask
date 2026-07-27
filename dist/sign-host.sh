@@ -1,8 +1,17 @@
 #!/bin/bash
+# ⚠️ NOT FOR DISTRIBUTION. This script re-signs an existing bundle but does NOT replace its
+# embedded provisioning profile. On a product of `xcodebuild build` that leaves a Development
+# profile under a Developer ID signature — the host then fails AMFI's launch check and macOS
+# SIGKILLs it (exit 163) on every user's Mac, while codesign and spctl still report success.
+# That combination shipped as the dead v0.2. To release, ARCHIVE + `-exportArchive` with
+# dist/exportOptions-devid.plist (see dist/README.md). Keep this script only for local
+# experiments on a bundle whose profile is already correct.
+#
 # Sign the LIGHT host app (no engine — just Swift UI + camera system-extension) with
 # Developer ID + hardened runtime, inside-out, preserving its build-time entitlements.
 # Usage: dist/sign-host.sh <MEETAMASK.app> ["Developer ID Application: NAME (TEAM)"]
 set -euo pipefail
+echo "⚠️  sign-host.sh is NOT the release path — releases use archive + exportArchive (dist/README.md)." >&2
 APP="${1:?usage: dist/sign-host.sh <MEETAMASK.app> [identity]}"
 ID="${2:-Developer ID Application: Andrey Dyuzhov (6D6948Z4MW)}"
 SIGN=(codesign --force --timestamp --options runtime --sign "$ID")

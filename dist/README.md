@@ -33,19 +33,37 @@ xcrun notarytool store-credentials "meetamask" \
 
 ## Release flow
 
-```bash
-# 1) Build the light host (no engine) and the engine.
-xcodegen generate
-xcodebuild -project MEETAMASK.xcodeproj -scheme MEETAMASK -configuration Release \
-  -allowProvisioningUpdates -derivedDataPath build/app build
-cmake --build engine/build --config Release
+> **The host MUST be exported from an archive.** `xcodebuild build` + `dist/sign-host.sh`
+> produces a bundle that passes `codesign --verify --deep --strict` AND `spctl -a` and still
+> gets SIGKILLed on every user's Mac (`RBSRequestErrorDomain 5` / `Launchd job spawn failed`,
+> exit 163). Reason: the `build` action embeds the **Development** provisioning profile
+> (`Mac Team Provisioning Profile`, cert = Apple Development), while sign-host.sh re-signs the
+> code with **Developer ID** and never replaces that profile. The host's restricted
+> `com.apple.developer.system-extension.install` entitlement then has no matching profile and
+> AMFI kills it. This is what shipped as the dead v0.2. `exportArchive` embeds
+> `Mac Team Direct Provisioning Profile`, whose certificate IS the Developer ID cert.
 
-# 2) Sign + package each artifact.
-dist/sign-host.sh      build/app/Build/Products/Release/MEETAMASK.app
+```bash
+# 1) Build the engine; ARCHIVE the host (never plain `build` for distribution).
+xcodegen generate
+cmake --build engine/build --config Release
+xcodebuild -project MEETAMASK.xcodeproj -scheme MEETAMASK -configuration Release \
+  -allowProvisioningUpdates -archivePath build/MEETAMASK.xcarchive archive
+
+# 2) Export the host with the Developer ID options, and package the engine.
+xcodebuild -exportArchive -archivePath build/MEETAMASK.xcarchive \
+  -exportOptionsPlist dist/exportOptions-devid.plist \
+  -exportPath build/export -allowProvisioningUpdates
 dist/package-engine.sh                 # → build/dist/MEETAMASKEngine.app + .zip (signed)
 
+# 2b) PROVE the profile matches the signature before going further.
+codesign -dvv build/export/MEETAMASK.app 2>&1 | grep Authority | head -1
+security cms -D -i build/export/MEETAMASK.app/Contents/embedded.provisionprofile \
+  | grep -A2 DeveloperCertificates | head -5     # must be the SAME Developer ID cert
+open build/export/MEETAMASK.app && sleep 3 && pgrep -x MEETAMASK   # must print a pid
+
 # 3) Notarize + staple each (needs the keychain profile above).
-dist/notarize.sh       build/app/Build/Products/Release/MEETAMASK.app
+dist/notarize.sh       build/export/MEETAMASK.app
 dist/notarize.sh       build/dist/MEETAMASKEngine.app
 
 # 4) Re-zip the STAPLED engine → the file the app downloads (has the ticket → offline-clean).

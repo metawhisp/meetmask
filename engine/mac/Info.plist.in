@@ -18,6 +18,12 @@
 	<string>0.1</string>
 	<key>CFBundleVersion</key>
 	<string>0.1</string>
+	<!-- The host↔engine wire contract THIS engine speaks (frame geometry + shm layout).
+	     EngineInstaller reads it from the downloaded bundle and refuses an engine that
+	     doesn't match, instead of trusting whatever the CDN happened to serve.
+	     Keep in sync with engine/frame_geometry.h — tests/geometry-parity.sh enforces it. -->
+	<key>MMEngineContract</key>
+	<string>1920x1080-bgra-seqlock-v1</string>
 	<key>LSEnvironment</key>
 	<dict>
 		<key>MallocNanoZone</key>

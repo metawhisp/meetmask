@@ -15,10 +15,11 @@ else. It must run with ZERO external files and ZERO network.
    `type="module"`). Use plain inline `<script>`. If you need a library, paste its
    full minified UMD source straight into a `<script>` tag.
 3. No new windows, no navigation, no downloads, no audio.
-4. Draw to a `<canvas width="1920" height="1080">` that fills the page (16:9).
+4. Draw to a `<canvas>` sized at runtime from window.innerWidth/innerHeight (16:9),
+   NOT a hardcoded width/height — the camera format changes between versions.
 5. Include `<button id="startBtn">` — MEETAMASK auto-clicks it to start.
-6. Use the camera: navigator.mediaDevices.getUserMedia({ video: { width: 1920,
-   height: 1080 } }), draw each frame to the canvas, then paint your effect with
+6. Use the camera: navigator.mediaDevices.getUserMedia({ video: { width: W,
+   height: H } }) with the same W/H, draw each frame to the canvas, then paint with
    Canvas 2D / WebGL and requestAnimationFrame.
 7. Do NOT mirror the output (the meeting app mirrors my self-view for me).
 
@@ -31,15 +32,18 @@ I move, deep-blue background, my handle '@me' bottom-left" >>>
 <style>html,body{margin:0;background:#000;overflow:hidden}#c{width:100%;height:100%;display:block}</style>
 </head><body>
   <video id="v" autoplay playsinline muted style="display:none"></video>
-  <canvas id="c" width="1920" height="1080"></canvas>
+  <canvas id="c"></canvas>
   <button id="startBtn">Enter</button>
   <script>
     const v = document.getElementById('v');
-    const x = document.getElementById('c').getContext('2d');
+    const c = document.getElementById('c');
+    const W = c.width  = Math.max(2, window.innerWidth  || 1920);
+    const H = c.height = Math.max(2, window.innerHeight || 1080);
+    const x = c.getContext('2d');
     async function start() {
       document.getElementById('startBtn').style.display = 'none';
-      v.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: 1920, height: 1080 } });
-      (function loop(){ x.drawImage(v, 0, 0, 1920, 1080); /* your effect here */ requestAnimationFrame(loop); })();
+      v.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: W, height: H } });
+      (function loop(){ x.drawImage(v, 0, 0, W, H); /* your effect here */ requestAnimationFrame(loop); })();
     }
     document.getElementById('startBtn').addEventListener('click', start);
   </script>

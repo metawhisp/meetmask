@@ -16,6 +16,10 @@ final class EngineFrameReceiver: ObservableObject {
 
     @Published private(set) var isRunning = false
     @Published private(set) var status = "Готов"
+    /// Set for anything the USER has to act on (no camera permission, dead engine, stale
+    /// engine…). `status` alone was never rendered anywhere, so every one of these messages
+    /// was invisible; the UI now shows `problem` verbatim. Cleared when frames flow again.
+    @Published private(set) var problem: String?
     @Published var previewImage: NSImage?
     // True from the moment a mask (re)launch is requested until its FIRST real frame lands.
     // The UI uses this to show "Switching…" and to withhold the ON-AIR badge until the new
@@ -30,13 +34,19 @@ final class EngineFrameReceiver: ObservableObject {
     private var frameCount = 0
     private var pendingFirstFrame = false   // frameQueue-owned: true from (re)launch until first frame
     private var reportedGeometryMismatch = false   // frameQueue-owned: only shout about a stale engine once
+    private var expectingExit = false       // frameQueue-owned: WE asked the engine to die — not a crash
+    private var lastFrameAt = Date()        // frameQueue-owned: watchdog baseline
+    private var reportedStall = false       // frameQueue-owned: say "no frames" once, not 30x/s
+    private var previewPending = false      // frameQueue-owned: at most one preview in flight
     private var timer: DispatchSourceTimer?
     private var activity: NSObjectProtocol?
 
     // All shared-memory + subprocess state (base/lastSeq/process/header) is touched only
     // on this serial queue — tick, relaunch and teardown — so they can never race each
     // other (e.g. munmap during a tick, or two engines writing the same buffer).
-    private let frameQueue = DispatchQueue(label: "com.meetamask.frames")
+    // .userInteractive: this is the only real-time path in the app — a late tick is a dropped
+    // frame in someone's call. Everything else in the pipeline already runs at this QoS.
+    private let frameQueue = DispatchQueue(label: "com.meetamask.frames", qos: .userInteractive)
 
     // The shared buffer is a FIXED size. Frames of any other dimensions are rejected on
     // both sides, never copied with attacker/garbage dimensions.
@@ -50,13 +60,28 @@ final class EngineFrameReceiver: ObservableObject {
     private let total = 16 + EngineFrameReceiver.frameW * EngineFrameReceiver.frameH * 4   // header(16) + BGRA
     private let log = OSLog(subsystem: "com.meetamask.app", category: "receiver")
 
+    init() {
+        // Quitting (⌘Q) or closing the window while ON AIR used to skip stop() entirely: the
+        // CEF engine kept running, the camera stayed claimed and an 8.3 MB /tmp file stayed
+        // behind until reboot. Tear down on the way out.
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification,
+                                               object: nil, queue: .main) { [weak self] _ in
+            self?.stop()
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        if isRunning { stop() }
+    }
+
     /// Start streaming a mask. If already running, ONLY the engine subprocess is swapped;
     /// the camera connection + read loop stay alive.
     func start(maskURL: URL) {
         // Security boundary lives at the loader, not just the gallery list: only ever
         // launch the engine on an app-approved (bundled) mask URL.
         guard isApprovedMaskURL(maskURL) else {
-            setStatus("Маска не одобрена")
+            setError("Маска не одобрена")
             os_log("receiver: refused non-approved mask URL: %{public}@", log: log, type: .error, maskURL.path)
             return
         }
@@ -65,7 +90,7 @@ final class EngineFrameReceiver: ObservableObject {
         // access at launch (MEETAMASKApp.init); authorized / notDetermined → proceed normally.
         let camAuth = AVCaptureDevice.authorizationStatus(for: .video)
         if camAuth == .denied || camAuth == .restricted {
-            setStatus("Нет доступа к камере → System Settings ▸ Privacy & Security ▸ Camera ▸ включи MEETAMASK")
+            setError("Нет доступа к камере → System Settings ▸ Privacy & Security ▸ Camera ▸ включи MEETAMASK")
             os_log("receiver: camera access denied/restricted — refusing start (masks would be black)", log: log, type: .error)
             return
         }
@@ -74,15 +99,20 @@ final class EngineFrameReceiver: ObservableObject {
             frameQueue.async { [weak self] in self?.relaunchEngine(maskURL: maskURL) }
             return
         }
-        guard Self.findEngine() != nil else { setStatus("Движок не найден"); return }
+        guard Self.findEngine() != nil else { setError("Движок не найден — переустанови приложение"); return }
 
         fd = open(shmPath, O_RDWR | O_CREAT, 0o666)
-        guard fd >= 0 else { setStatus("shm open failed"); return }
-        ftruncate(fd, off_t(total))
+        guard fd >= 0 else { setError("Не удалось создать буфер кадров (shm open)"); return }
+        // A short file would still mmap: every later access past EOF raises SIGBUS and kills
+        // the app. Refuse the start instead (ENOSPC / quota).
+        guard ftruncate(fd, off_t(total)) == 0 else {
+            releaseSHM()
+            setError("Не хватает места для буфера кадров (\(total / 1_000_000) МБ)"); return
+        }
         let mapped = mmap(nil, total, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)
         guard let mapped = mapped, mapped != MAP_FAILED else {
             releaseSHM()                      // don't leak the fd + on-disk file on a failed start
-            setStatus("mmap failed"); return
+            setError("Не удалось отобразить буфер кадров (mmap)"); return
         }
         base = mapped
         resetHeader()           // clear header so we don't read a stale frame
@@ -94,7 +124,7 @@ final class EngineFrameReceiver: ObservableObject {
         // Camera connection — ONCE, kept alive across engine restarts.
         guard feeder.connect() else {
             releaseSHM()                      // ditto: this start never got off the ground
-            setStatus("Камера не найдена. Если только что обновил приложение — перезагрузи Mac: расширение камеры доустанавливается при перезапуске.")
+            setError("Камера не найдена. Если только что обновил приложение — перезагрузи Mac: расширение камеры доустанавливается при перезапуске.")
             dbg("feeder.connect() FAILED")
             return
         }
@@ -133,6 +163,8 @@ final class EngineFrameReceiver: ObservableObject {
     /// single-writer assumption hold across mask switches and stop/start — the old
     /// writer is always dead before a new one (or a header reset) touches the buffer.
     private func waitForExit(_ p: Process, timeout: TimeInterval) {
+        expectingExit = true
+        defer { expectingExit = false }
         p.terminate()   // SIGTERM
         let deadline = Date().addingTimeInterval(timeout)
         while p.isRunning && Date() < deadline { usleep(5_000) }
@@ -181,7 +213,12 @@ final class EngineFrameReceiver: ObservableObject {
     private func launchEngine(maskURL: URL) {
         pendingFirstFrame = true   // frameQueue: next committed frame clears `switching`
         reportedGeometryMismatch = false   // a fresh engine deserves a fresh verdict
-        guard let enginePath = Self.findEngine() else { return }
+        lastFrameAt = Date()               // the watchdog measures from the launch, not from boot
+        guard let enginePath = Self.findEngine() else {
+            // Returning silently here left the UI stuck on "Switching…" with a dead stream.
+            setError("Движок пропал — переустанови приложение")
+            return
+        }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: enginePath)
         // Pass as --key=value switches (NOT positional args) so Chromium never treats
@@ -190,8 +227,18 @@ final class EngineFrameReceiver: ObservableObject {
         // User-imported masks are untrusted HTML → run them in the engine's FS + network jail.
         if isUntrustedMaskURL(maskURL) { args.append("--untrusted") }
         p.arguments = args
+        // CEF crashes happen. Without this the receiver kept ticking against a dead writer:
+        // last frame frozen on camera, UI still claiming "Маска идёт…". Report it instead.
+        p.terminationHandler = { [weak self] proc in
+            guard let self = self else { return }
+            self.frameQueue.async {
+                guard self.process === proc, !self.expectingExit else { return }   // we didn't ask for this
+                self.process = nil
+                self.setError("Движок остановился (код \(proc.terminationStatus)) — нажми Go live, чтобы перезапустить")
+            }
+        }
         do { try p.run() } catch {
-            setStatus("Не удалось запустить движок: \(error.localizedDescription)")
+            setError("Не удалось запустить движок: \(error.localizedDescription)")
             os_log("receiver: engine launch failed: %{public}@", log: log, type: .error, String(describing: error))
             return
         }
@@ -226,14 +273,23 @@ final class EngineFrameReceiver: ObservableObject {
 
     private func tick() {
         guard let base = base else { return }
+        // Frames can stop without the process dying: the renderer wedges, the page throws,
+        // the mask hangs. Nothing else notices — the camera just freezes on the last frame.
+        if !reportedStall, Date().timeIntervalSince(lastFrameAt) > 4.0 {
+            reportedStall = true
+            setError("Движок не отдаёт кадры 4 секунды — переключи маску или нажми Go live")
+        }
         // Seqlock read (mirrors engine/frame_shm.mm + engine/test/seqlock_test.mm):
         // the engine publishes EVEN sequence numbers and marks a write in progress as
         // ODD. Reject odd, copy the frame, then re-read seq and only COMMIT if it did
         // not change across the copy. Otherwise a half-written (torn) frame could be
         // pushed to the virtual camera. Bounded retries; the next tick catches up.
+        // Retries sleep ~0.3 ms: the writer holds the odd marker for the length of an 8.3 MB
+        // memcpy (~1 ms), so spinning 8 times in a microsecond just guaranteed we lost the
+        // whole 33 ms tick. 8 x 0.3 ms outlasts a write and still leaves the budget intact.
         for _ in 0..<8 {
             let s1 = base.load(fromByteOffset: 0, as: UInt64.self)
-            if s1 & 1 == 1 { continue }          // writer mid-write → retry
+            if s1 & 1 == 1 { usleep(300); continue }   // writer mid-write → back off, retry
             if s1 == lastSeq { return }          // no new frame
             OSMemoryBarrier()   // acquire: dimension + data reads must happen-after reading s1
             let w = Int(base.load(fromByteOffset: 8, as: UInt32.self))
@@ -247,7 +303,7 @@ final class EngineFrameReceiver: ObservableObject {
                     reportedGeometryMismatch = true
                     os_log("receiver: engine publishes %dx%d, expected %dx%d — engine is outdated",
                            log: log, type: .error, w, h, Self.frameW, Self.frameH)
-                    setStatus("Движок устарел (\(w)×\(h) вместо \(Self.frameW)×\(Self.frameH)) — переустанови движок")
+                    setError("Движок устарел (\(w)×\(h) вместо \(Self.frameW)×\(Self.frameH)) — переустанови движок")
                 }
                 return
             }
@@ -255,41 +311,73 @@ final class EngineFrameReceiver: ObservableObject {
             // Copy out (into a CVPixelBuffer, and optionally the preview image) while
             // the frame is believed stable…
             let sbuf = feeder.makeSampleBuffer(fromBGRA: data, width: w, height: h)
-            let img = (frameCount % 2 == 0) ? Self.makeImage(data, w, h) : nil
+            // The preview is a small thumbnail in the app window — building a full 8.3 MB
+            // NSImage 15x/s (~124 MB/s) and firing each one at the main queue could pile up
+            // unbounded if the main thread stalls. Downscale, and never queue more than one.
+            let img = (!previewPending && frameCount % 6 == 0) ? Self.makePreview(data, w, h) : nil
             OSMemoryBarrier()
             // …then verify no write started during the copy. If it did, discard and retry.
-            if base.load(fromByteOffset: 0, as: UInt64.self) != s1 { continue }
+            if base.load(fromByteOffset: 0, as: UInt64.self) != s1 { usleep(300); continue }
 
             lastSeq = s1
+            lastFrameAt = Date()
+            if reportedStall {       // frames are back — stop shouting
+                reportedStall = false
+                setStatus("Маска идёт в MEETAMASK Camera…")
+            }
             if pendingFirstFrame {   // first real frame of the new mask → it's actually on camera now
                 pendingFirstFrame = false
-                DispatchQueue.main.async { self.switching = false }
+                DispatchQueue.main.async { self.switching = false; self.problem = nil }
             }
             if let sbuf = sbuf { feeder.enqueue(sbuf) }
             frameCount &+= 1
-            if frameCount % 30 == 0 {   // ~1/s: proof the push is alive
+            #if DEBUG
+            if frameCount % 30 == 0 {   // ~1/s: proof the push is alive (dev only — no disk writes in a release)
                 let line = "read=\(frameCount) seq=\(s1) sinkReady=\(feeder.sinkReady) pushedToCamera=\(feeder.totalPushed)"
                 dbg(line)
                 try? line.write(toFile: "/tmp/mm-push.txt", atomically: true, encoding: .utf8)
             }
+            #endif
             if let img = img {
-                DispatchQueue.main.async { self.previewImage = img }
+                previewPending = true
+                DispatchQueue.main.async {
+                    self.previewImage = img
+                    self.frameQueue.async { self.previewPending = false }
+                }
             }
             return
         }
     }
 
-    /// Build an NSImage from a tightly-packed BGRA buffer (copies, so shm may be reused).
-    private static func makeImage(_ data: UnsafeRawPointer, _ w: Int, _ h: Int) -> NSImage? {
+    /// Build a SMALL preview image from a tightly-packed BGRA buffer. The window shows a
+    /// thumbnail, so the full 1080p frame is downscaled here (once, on the frame queue)
+    /// instead of shipping 8.3 MB to the main thread and letting AppKit scale it.
+    private static let previewSpace = CGColorSpaceCreateDeviceRGB()   // one, not one per frame
+    private static func makePreview(_ data: UnsafeRawPointer, _ w: Int, _ h: Int) -> NSImage? {
         let bitmapInfo = CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        guard let ctx = CGContext(data: UnsafeMutableRawPointer(mutating: data),
+        guard let src = CGContext(data: UnsafeMutableRawPointer(mutating: data),
                                   width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
-                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: bitmapInfo),
-              let cg = ctx.makeImage() else { return nil }
-        return NSImage(cgImage: cg, size: NSSize(width: w, height: h))
+                                  space: previewSpace, bitmapInfo: bitmapInfo),
+              let full = src.makeImage() else { return nil }
+        let pw = 480, ph = max(1, h * 480 / max(1, w))
+        guard let dst = CGContext(data: nil, width: pw, height: ph, bitsPerComponent: 8,
+                                  bytesPerRow: 0, space: previewSpace, bitmapInfo: bitmapInfo)
+        else { return NSImage(cgImage: full, size: NSSize(width: w, height: h)) }
+        dst.interpolationQuality = .medium
+        dst.draw(full, in: CGRect(x: 0, y: 0, width: pw, height: ph))
+        guard let small = dst.makeImage() else { return nil }
+        return NSImage(cgImage: small, size: NSSize(width: pw, height: ph))
     }
 
-    private func setStatus(_ s: String) { DispatchQueue.main.async { self.status = s } }
+    private func setStatus(_ s: String) { DispatchQueue.main.async { self.status = s; self.problem = nil } }
+
+    /// Something the user must fix or know about. Unlike `setStatus` this also lights up
+    /// `problem`, which the UI renders — silent failures are how a dead engine used to look
+    /// exactly like a working one.
+    private func setError(_ s: String) {
+        os_log("receiver: PROBLEM: %{public}@", log: log, type: .error, s)
+        DispatchQueue.main.async { self.status = s; self.problem = s; self.switching = false }
+    }
 
     /// Unbuffered debug line to stderr (visible when the app is launched from a terminal).
     private func dbg(_ s: String) { fputs("MEETAMASK receiver: \(s)\n", stderr) }

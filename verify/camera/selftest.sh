@@ -35,16 +35,36 @@ fi
 echo "        shm = $SHM"
 
 echo "[4/4] Asserting frames are REAL camera (not black)…"
-python3 - "$SHM" <<'PY'
-import sys, struct, statistics
-from PIL import Image
+EXPECT_W=$(grep -oE 'kFrameWidth *= *[0-9]+'  "$(dirname "$0")/../../engine/frame_geometry.h" | grep -oE '[0-9]+$')
+EXPECT_H=$(grep -oE 'kFrameHeight *= *[0-9]+' "$(dirname "$0")/../../engine/frame_geometry.h" | grep -oE '[0-9]+$')
+python3 - "$SHM" "$EXPECT_W" "$EXPECT_H" <<'PY'
+import sys, struct
+# No Pillow: stock macOS python3 doesn't have it, and this test must run on a clean Mac.
+# Raw BGRA is trivial to sample directly.
 buf = open(sys.argv[1], "rb").read()
+want_w, want_h = int(sys.argv[2]), int(sys.argv[3])
 seq, w, h = struct.unpack_from("<QII", buf, 0)
-img = Image.frombytes("RGBA", (1280, 720), buf[16:16 + 1280*720*4]).convert("RGB")
-mean = statistics.mean(sum(p)/3 for p in img.resize((48, 27)).getdata())
-print(f"        seq={seq}  meanLuma={mean:.1f}")
 if seq == 0:
     print("❌ FAIL: engine wrote no frames (it crashed or never started)."); sys.exit(1)
+# The geometry the engine actually published must be the geometry this build expects —
+# a stale engine publishing 1280x720 is exactly the regression that made the camera black,
+# and it produces perfectly non-black pixels, so a luma check alone would pass it.
+if (w, h) != (want_w, want_h):
+    print(f"❌ FAIL: engine publishes {w}x{h}, this build expects {want_w}x{want_h} — stale engine."); sys.exit(1)
+need = 16 + w * h * 4
+if len(buf) < need:
+    print(f"❌ FAIL: buffer is {len(buf)} bytes, need {need} for {w}x{h}."); sys.exit(1)
+# Sample a 48x27 grid straight out of the BGRA plane.
+total, n = 0, 0
+for gy in range(27):
+    y = gy * h // 27
+    row = 16 + y * w * 4
+    for gx in range(48):
+        off = row + (gx * w // 48) * 4
+        total += buf[off] + buf[off + 1] + buf[off + 2]   # B,G,R
+        n += 3
+mean = total / n
+print(f"        seq={seq}  frame={w}x{h}  meanLuma={mean:.1f}")
 if mean < 10:
     print("❌ FAIL: frames are BLACK — camera not delivering.")
     print("        Fix: System Settings ▸ Privacy & Security ▸ Camera ▸ enable MEETAMASK,")

@@ -15,7 +15,11 @@ struct MEETAMASKApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        // ONE window, not a WindowGroup: every window builds its own EngineFrameReceiver but
+        // they all share the single process-wide CameraFeeder sink, so a second window
+        // interleaved a second mask into the same camera and closing either one killed the
+        // other's feed. There is exactly one virtual camera — so exactly one stage.
+        Window("MEETAMASK", id: "stage") {
             StageView()
         }
         .windowStyle(.hiddenTitleBar)   // the dark stage runs to the top; traffic lights float over it

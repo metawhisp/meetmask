@@ -75,6 +75,14 @@ struct StageView: View {
         return engine.switching ? .switching : .live
     }
 
+    /// Install failures and the pending-reboot state are user-actionable too.
+    private var installerProblem: String? {
+        if ext.needsMove { return "Перенеси MEETAMASK в /Applications — иначе macOS не установит расширение камеры" }
+        if case let .failed(msg) = installer.state { return "Движок не установлен: \(msg)" }
+        if ext.needsReboot { return "Расширение камеры обновлено — перезагрузи Mac, чтобы камера вернулась" }
+        return nil
+    }
+
     private var filtered: [Mask] {
         masks.filter { m in
             let tagOK = activeTag == "All"
@@ -174,6 +182,14 @@ struct StageView: View {
                 Text(statusLabel).font(Brand.mono(10)).tracking(0.5).textCase(.uppercase).foregroundStyle(Brand.ink2)
             }
             .padding(.top, 11)
+            // Everything the engine needs the user to know (no camera access, dead engine,
+            // stale engine, reboot pending) used to be written to a property nothing rendered.
+            if let problem = engine.problem ?? installerProblem {
+                Text(problem)
+                    .font(Brand.mono(9.5)).foregroundStyle(Brand.warn)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 7)
+            }
             if status == .live {
                 Text("Choose “MEETAMASK Camera” in Meet or Zoom")
                     .font(Brand.mono(9.5)).foregroundStyle(Brand.muted)
@@ -182,7 +198,9 @@ struct StageView: View {
 
             Spacer(minLength: 14)
             setupBlock
-            Text("\(Self.fpsLabel(engine)) · 1920×1080")
+            // Derived, never typed: a hardcoded resolution here was still claiming 720p long
+            // after the camera moved to 1080p.
+            Text("\(Self.fpsLabel(engine)) · \(fixedCamWidth)×\(fixedCamHeight)")
                 .font(Brand.mono(9.5)).tracking(0.5).textCase(.uppercase).foregroundStyle(Brand.muted)
                 .padding(.top, 10)
         }
@@ -454,7 +472,13 @@ struct StageView: View {
     private func toggleAir() {
         if status == .paused {
             paused = false
-            Task { await installer.ensureInstalled(); if let m = selected { engine.start(maskURL: m.indexURL) } }
+            Task {
+                await installer.ensureInstalled()
+                // Only launch when the installed engine actually speaks our wire contract —
+                // starting anyway ran a stale 720p engine whose every frame gets dropped.
+                guard installer.state == .installed, let m = selected else { return }
+                engine.start(maskURL: m.indexURL)
+            }
         } else {
             paused = true
             engine.stop()

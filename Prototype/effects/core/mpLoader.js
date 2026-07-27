@@ -15,7 +15,7 @@ const POSE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_lan
 let _mp = null;
 let _fileset = null;
 const _faceLandmarkerByKey = new Map();
-let _handLandmarkerP = null;
+const _handLandmarkerByKey = new Map();
 let _selfieSegmenterP = null;
 let _gestureRecognizerP = null;
 let _poseLandmarkerP = null;
@@ -46,9 +46,14 @@ export async function loadFaceLandmarker({ numFaces = 1, blendshapes = false, tr
   return p;
 }
 
+// Cached per numHands, like the face loader above. A single shared instance ignored the
+// argument: whoever loaded FIRST fixed the limit for everyone, so running a 1-hand mask
+// (fingerPaint) and then a 2-hand one (SIX SEVEN) left the second detecting one hand —
+// and SIX SEVEN, which needs two open palms, silently never triggered.
 export async function loadHandLandmarker({ numHands = 2 } = {}) {
-  if (_handLandmarkerP) return _handLandmarkerP;
-  _handLandmarkerP = (async () => {
+  const key = String(numHands);
+  if (_handLandmarkerByKey.has(key)) return _handLandmarkerByKey.get(key);
+  const p = (async () => {
     const mp = await loadVision();
     return mp.HandLandmarker.createFromOptions(_fileset, {
       baseOptions: { modelAssetPath: HAND_MODEL_URL, delegate: 'GPU' },
@@ -56,7 +61,8 @@ export async function loadHandLandmarker({ numHands = 2 } = {}) {
       numHands,
     });
   })();
-  return _handLandmarkerP;
+  _handLandmarkerByKey.set(key, p);
+  return p;
 }
 
 // SelfieSegmenter — returns a per-pixel mask of the foreground person.
