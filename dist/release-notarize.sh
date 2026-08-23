@@ -5,7 +5,10 @@ set -uo pipefail
 PROFILE="${1:-meetamask}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENGINE="$ROOT/build/dist/MEETAMASKEngine.app"
-HOST="$ROOT/build/app/Build/Products/Release/MEETAMASK.app"
+# The DISTRIBUTABLE host is the exportArchive product. `build/app/...` is the plain
+# `xcodebuild build` output: Developer ID signature over a Development profile, which
+# macOS SIGKILLs at launch (see dist/README.md). Notarizing that ships a dead app.
+HOST="${HOST_APP:-$ROOT/build/export/MEETAMASK.app}"
 
 echo "================ NOTARIZE ENGINE (~305MB, biggest) ================"
 bash "$ROOT/dist/notarize.sh" "$ENGINE" "$PROFILE" ; ENGINE_RC=$?

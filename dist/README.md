@@ -94,7 +94,7 @@ curl -sIL https://dl.meetamask.com/engine | grep -i '^HTTP'   # must end 200/206
 ## Verify (on this machine, and ideally a clean one)
 
 ```bash
-spctl -a -vvv build/app/Build/Products/Release/MEETAMASK.app   # → accepted, Notarized Developer ID
+spctl -a -vvv build/export/MEETAMASK.app   # → accepted, Notarized Developer ID
 codesign --verify --deep --strict build/dist/MEETAMASKEngine.app
 ```
 
